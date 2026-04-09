@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>社労士スタディング 学習ツール 2026</title>
+<style>
+:root {
+  --primary: #1a73e8;
+  --primary-dark: #1557b0;
+  --bg: #f5f7fa;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --text-light: #666;
+  --border: #e0e0e0;
+  --success: #34a853;
+  --warning: #fbbc04;
+  --danger: #ea4335;
+  --accent: #8b5cf6;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+
+.header {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: white;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+.header h1 { font-size: 18px; font-weight: 700; }
+.header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+.tab-nav {
+  display: flex;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 58px;
+  z-index: 99;
+}
+.tab-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex: none;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  color: var(--text-light);
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.content { max-width: 800px; margin: 0 auto; padding: 16px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.subject-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--card);
+  color: var(--text);
+  margin-bottom: 12px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-success { background: var(--success); color: white; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-block { width: 100%; justify-content: center; }
+
+input[type="text"], input[type="number"], input[type="date"], textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
+textarea { resize: vertical; min-height: 60px; }
+
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-light); margin-bottom: 4px; }
+
+/* ======================== */
+/* PROGRESS (進捗)          */
+/* ======================== */
+.progress-category {
+  margin-bottom: 20px;
+}
+.progress-category-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pcat-lecture { background: #e8f0fe; color: var(--primary); }
+.pcat-smart { background: #e6f4ea; color: var(--success); }
+.pcat-past { background: #fef7e0; color: #b5890a; }
+.pcat-select { background: #fce8e6; color: var(--danger); }
+.pcat-summary { background: #f3e8fd; color: var(--accent); }
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+.progress-row:last-child { border-bottom: none; }
+.progress-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.progress-bar-wrap {
+  width: 100px;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.progress-nums {
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 55px;
+  text-align: right;
+  white-space: nowrap;
+}
+.progress-btns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.progress-btns button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.progress-btns button:active { background: var(--bg); }
+
+.progress-total-bar {
+  height: 12px;
+  background: var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-total-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  transition: width 0.5s;
+}
+.progress-total-text {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+/* ======================== */
+/* FLASHCARD               */
+/* ======================== */
+.flashcard-container { perspective: 1000px; margin: 16px 0; }
+.flashcard {
+  width: 100%; min-height: 200px; position: relative; cursor: pointer;
+  transform-style: preserve-3d; transition: transform 0.5s;
+}
+.flashcard.flipped { transform: rotateY(180deg); }
+.flashcard-face {
+  position: absolute; width: 100%; min-height: 200px; backface-visibility: hidden;
+  border-radius: var(--radius); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 24px; text-align: center;
+}
+.flashcard-front { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+.flashcard-back { background: linear-gradient(135deg, var(--success), #2ecc71); color: white; transform: rotateY(180deg); }
+.flashcard-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin-bottom: 12px; }
+.flashcard-text { font-size: 20px; font-weight: 700; line-height: 1.5; word-break: break-all; }
+.flashcard-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; gap: 8px; }
+.flashcard-counter { font-size: 14px; font-weight: 600; color: var(--text-light); }
+.flashcard-empty { text-align: center; padding: 40px 20px; color: var(--text-light); }
+
+.card-list-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--border); gap: 8px;
+}
+.card-list-item:last-child { border-bottom: none; }
+.card-list-term { font-weight: 600; font-size: 14px; flex: 1; }
+.card-list-def { font-size: 13px; color: var(--text-light); flex: 1; text-align: right; }
+.card-list-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+/* ======================== */
+/* CROSS TABLE             */
+/* ======================== */
+.cross-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 12px -16px; padding: 0 16px; }
+.cross-table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 13px; }
+.cross-table th, .cross-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+.cross-table th { background: var(--primary); color: white; font-weight: 600; position: sticky; top: 0; white-space: nowrap; }
+.cross-table tr:nth-child(even) { background: #f8f9fa; }
+.cross-table td:first-child { font-weight: 600; background: #e8f0fe; white-space: nowrap; }
+.category-tab {
+  display: inline-block; padding: 6px 14px; margin: 0 4px 8px 0; border-radius: 20px;
+  font-size: 12px; font-weight: 600; cursor: pointer; border: 2px solid var(--border);
+  background: var(--card); transition: all 0.2s;
+}
+.category-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+/* ======================== */
+/* YEARS                   */
+/* ======================== */
+.year-card { display: flex; align-items: center; padding: 12px; border-radius: 8px; margin-bottom: 8px; background: #f8f9fa; gap: 12px; }
+.year-badge { background: var(--primary); color: white; font-size: 16px; font-weight: 700; padding: 8px 12px; border-radius: 8px; white-space: nowrap; min-width: 70px; text-align: center; }
+.year-info { flex: 1; }
+.year-title { font-weight: 600; font-size: 14px; }
+.year-desc { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+.year-hidden { background: var(--text); color: var(--text); cursor: pointer; user-select: none; }
+.year-hidden.revealed { color: white; }
+
+/* ======================== */
+/* TASKS                   */
+/* ======================== */
+.task-date-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.task-date-nav { display: flex; gap: 8px; align-items: center; }
+.task-date-display { font-size: 16px; font-weight: 700; }
+.task-item { display: flex; align-items: center; padding: 12px; border-radius: 8px; margin-bottom: 6px; background: #f8f9fa; gap: 10px; transition: all 0.2s; }
+.task-item.done { opacity: 0.5; }
+.task-item.done .task-text { text-decoration: line-through; }
+.task-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.task-check.checked { background: var(--success); border-color: var(--success); color: white; }
+.task-text { flex: 1; font-size: 14px; }
+.task-time { font-size: 12px; color: var(--text-light); white-space: nowrap; }
+.task-delete { color: var(--danger); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.task-progress { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin: 12px 0; }
+.task-progress-bar { height: 100%; background: linear-gradient(90deg, var(--success), #2ecc71); border-radius: 4px; transition: width 0.3s; }
+.task-stats { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-light); margin-bottom: 12px; }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: flex-end; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--card); border-radius: 16px 16px 0 0; width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; padding: 24px 20px; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal h3 { font-size: 18px; margin-bottom: 16px; }
+.modal-close { float: right; font-size: 24px; cursor: pointer; color: var(--text-light); border: none; background: none; }
+
+.toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 300; opacity: 0; transition: opacity 0.3s; }
+.toast.show { opacity: 1; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-blue { background: #e8f0fe; color: var(--primary); }
+.badge-green { background: #e6f4ea; color: var(--success); }
+
+@media (min-width: 600px) {
+  .header h1 { font-size: 22px; }
+  .tab-btn { padding: 14px 20px; font-size: 14px; }
+  .flashcard-text { font-size: 24px; }
+  .progress-label { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>社労士 学習ツール 2026</h1>
+  <p>スタディング合格コース対応</p>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="progress">進捗</button>
+  <button class="tab-btn" data-tab="flashcard">単語帳</button>
+  <button class="tab-btn" data-tab="cross">横断整理</button>
+  <button class="tab-btn" data-tab="years">年号</button>
+  <button class="tab-btn" data-tab="tasks">タスク</button>
+</div>
+
+<div class="content">
+
+  <!-- ==================== -->
+  <!-- 0. 学習進捗           -->
+  <!-- ==================== -->
+  <div id="progress" class="tab-content active">
+    <!-- Total overview -->
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">全体進捗</div>
+      <div class="progress-total-bar"><div class="progress-total-fill" id="total-progress-bar"></div></div>
+      <div class="progress-total-text" id="total-progress-text"></div>
+    </div>
+
+    <div id="progress-area"></div>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 1. 単語帳             -->
+  <!-- ==================== -->
+  <div id="flashcard" class="tab-content">
+    <select class="subject-select" id="fc-subject" onchange="loadFlashcards()">
+      <option value="">-- 科目を選択 --</option>
+    </select>
+    <div id="fc-study" style="display:none">
+      <div class="flashcard-container">
+        <div class="flashcard" id="fc-card" onclick="flipCard()">
+          <div class="flashcard-face flashcard-front">
+            <div class="flashcard-label">用語</div>
+            <div class="flashcard-text" id="fc-front-text"></div>
+          </div>
+          <div class="flashcard-face flashcard-back">
+            <div class="flashcard-label">意味・解説</div>
+            <div class="flashcard-text" id="fc-back-text"></div>
+          </div>
+        </div>
+      </div>
+      <div class="flashcard-nav">
+        <button class="btn btn-outline btn-sm" onclick="prevCard()">◀ 前</button>
+        <span class="flashcard-counter" id="fc-counter">1 / 10</span>
+        <button class="btn btn-outline btn-sm" onclick="shuffleCards()">シャッフル</button>
+        <button class="btn btn-outline btn-sm" onclick="nextCard()">次 ▶</button>
+      </div>
+    </div>
+    <div id="fc-empty" class="flashcard-empty"><p>科目を選択して、単語カードを追加しましょう</p></div>
+    <div style="margin-top:16px; display:flex; gap:8px">
+      <button class="btn btn-primary btn-block" onclick="openModal('fc-add-modal')">＋ カード追加</button>
+      <button class="btn btn-outline btn-block" onclick="toggleCardList()">一覧表示</button>
+    </div>
+    <div id="fc-list" style="display:none; margin-top:12px"><div class="card" id="fc-list-inner"></div></div>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 2. 横断整理表         -->
+  <!-- ==================== -->
+  <div id="cross" class="tab-content">
+    <div id="cross-categories" style="margin-bottom:12px; overflow-x:auto; white-space:nowrap; padding-bottom:4px;"></div>
+    <div id="cross-table-area"></div>
+    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('cross-add-modal')">＋ 横断項目を追加</button>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 3. 重要年号覚え表     -->
+  <!-- ==================== -->
+  <div id="years" class="tab-content">
+    <div style="display:flex; gap:8px; margin-bottom:12px">
+      <select class="subject-select" id="year-subject" onchange="loadYears()" style="margin-bottom:0">
+        <option value="all">全科目</option>
+      </select>
+      <button class="btn btn-primary" onclick="toggleYearQuiz()" id="year-quiz-btn">テスト</button>
+    </div>
+    <div id="year-list"></div>
+    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('year-add-modal')">＋ 年号を追加</button>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 4. タスク管理         -->
+  <!-- ==================== -->
+  <div id="tasks" class="tab-content">
+    <div class="card">
+      <div class="task-date-header">
+        <div class="task-date-nav">
+          <button class="btn btn-outline btn-sm" onclick="changeTaskDate(-1)">◀</button>
+          <span class="task-date-display" id="task-date"></span>
+          <button class="btn btn-outline btn-sm" onclick="changeTaskDate(1)">▶</button>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="goToday()">今日</button>
+      </div>
+      <div class="task-progress"><div class="task-progress-bar" id="task-progress-bar"></div></div>
+      <div class="task-stats">
+        <span id="task-stats-text">0 / 0 完了</span>
+        <span id="task-stats-time">合計: 0分</span>
+      </div>
+    </div>
+    <div id="task-list"></div>
+    <div style="margin-top:12px; display:flex; gap:8px">
+      <button class="btn btn-primary btn-block" onclick="openModal('task-add-modal')">＋ タスク追加</button>
+      <button class="btn btn-outline btn-block" onclick="openModal('task-template-modal')">テンプレート</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== -->
+<!-- MODALS               -->
+<!-- ==================== -->
+<div class="modal-overlay" id="fc-add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('fc-add-modal')">&times;</button>
+    <h3>カード追加</h3>
+    <div class="form-group"><label>科目</label><select class="subject-select" id="fc-add-subject" style="margin-bottom:0"></select></div>
+    <div class="form-group"><label>用語（表面）</label><input type="text" id="fc-add-term" placeholder="例：平均賃金"></div>
+    <div class="form-group"><label>意味・解説（裏面）</label><textarea id="fc-add-def" placeholder="例：算定事由発生日以前3か月間の賃金総額÷総日数"></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="addFlashcard()">追加</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="cross-add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('cross-add-modal')">&times;</button>
+    <h3>横断整理項目を追加</h3>
+    <div class="form-group"><label>カテゴリ</label><input type="text" id="cross-add-cat" placeholder="例：届出期限" list="cross-cat-list"><datalist id="cross-cat-list"></datalist></div>
+    <div class="form-group"><label>項目名</label><input type="text" id="cross-add-item" placeholder="例：被保険者資格取得届"></div>
+    <div id="cross-add-subjects"></div>
+    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="addCrossItem()">追加</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="year-add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('year-add-modal')">&times;</button>
+    <h3>年号を追加</h3>
+    <div class="form-group"><label>年号</label><input type="text" id="year-add-year" placeholder="例：1961"></div>
+    <div class="form-group"><label>出来事</label><input type="text" id="year-add-title" placeholder="例：国民年金法施行（国民皆年金）"></div>
+    <div class="form-group"><label>補足説明</label><textarea id="year-add-desc" placeholder="例：自営業者等も年金制度の対象に"></textarea></div>
+    <div class="form-group"><label>関連科目</label><select class="subject-select" id="year-add-subject" style="margin-bottom:0"></select></div>
+    <button class="btn btn-primary btn-block" onclick="addYear()">追加</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="task-add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('task-add-modal')">&times;</button>
+    <h3>タスク追加</h3>
+    <div class="form-group"><label>タスク内容</label><input type="text" id="task-add-text" placeholder="例：労基法 基本講座1〜3"></div>
+    <div class="form-group"><label>目安時間（分）</label><input type="text" id="task-add-time" placeholder="例：60"></div>
+    <div class="form-group"><label>科目</label><select class="subject-select" id="task-add-subject" style="margin-bottom:0"><option value="">-- 任意 --</option></select></div>
+    <button class="btn btn-primary btn-block" onclick="addTask()">追加</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="task-template-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('task-template-modal')">&times;</button>
+    <h3>テンプレートから追加</h3>
+    <p style="font-size:13px; color:var(--text-light); margin-bottom:12px">よく使うタスクセットを一括追加</p>
+    <div id="template-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========================================
+// DATA
+// ========================================
+const SUBJECTS = [
+  { id: 'roukihou', name: '労働基準法', short: '労基' },
+  { id: 'aneihou', name: '労働安全衛生法', short: '安衛' },
+  { id: 'rousaihou', name: '労災保険法', short: '労災' },
+  { id: 'koyouhou', name: '雇用保険法', short: '雇用' },
+  { id: 'choushuuhou', name: '労働保険徴収法', short: '徴収' },
+  { id: 'roudou_ippan', name: '労働一般常識', short: '労一' },
+  { id: 'kenpohou', name: '健康保険法', short: '健保' },
+  { id: 'kokunenhou', name: '国民年金法', short: '国年' },
+  { id: 'kounenhou', name: '厚生年金保険法', short: '厚年' },
+  { id: 'shakai_ippan', name: '社会保険一般常識', short: '社一' },
+];
+
+// ========================================
+// PROGRESS DATA (Initial)
+// ========================================
+const DEFAULT_PROGRESS = {
+  kihon: {
+    label: '基本講座',
+    css: 'pcat-lecture',
+    color: '#1a73e8',
+    items: [
+      { id:'roukihou', name:'労働基準法', done:0, total:20 },
+      { id:'aneihou', name:'労働安全衛生法', done:0, total:10 },
+      { id:'rousaihou', name:'労災保険法', done:0, total:18 },
+      { id:'koyouhou', name:'雇用保険法', done:1, total:20 },
+      { id:'choushuuhou', name:'労働保険徴収法', done:0, total:12 },
+      { id:'roudou_ippan', name:'労働一般常識', done:0, total:12 },
+      { id:'kenpohou', name:'健康保険法', done:10, total:24 },
+      { id:'kokunenhou', name:'国民年金法', done:3, total:24 },
+      { id:'kounenhou', name:'厚生年金保険法', done:0, total:24 },
+      { id:'shakai_ippan', name:'社会保険一般常識', done:0, total:10 },
+    ]
+  },
+  smart: {
+    label: 'スマート問題集',
+    css: 'pcat-smart',
+    color: '#34a853',
+    items: [
+      { id:'roukihou', name:'労働基準法', done:2, total:20 },
+      { id:'aneihou', name:'労働安全衛生法', done:0, total:10 },
+      { id:'rousaihou', name:'労災保険法', done:0, total:18 },
+      { id:'koyouhou', name:'雇用保険法', done:1, total:20 },
+      { id:'choushuuhou', name:'労働保険徴収法', done:0, total:12 },
+      { id:'roudou_ippan', name:'労働一般常識', done:0, total:12 },
+      { id:'kenpohou', name:'健康保険法', done:7, total:24 },
+      { id:'kokunenhou', name:'国民年金法', done:3, total:24 },
+      { id:'kounenhou', name:'厚生年金保険法', done:0, total:24 },
+      { id:'shakai_ippan', name:'社会保険一般常識', done:0, total:10 },
+    ]
+  },
+  past: {
+    label: 'セレクト過去問集',
+    css: 'pcat-past',
+    color: '#b5890a',
+    items: [
+      { id:'roukihou', name:'労働基準法', done:0, total:3 },
+      { id:'aneihou', name:'労働安全衛生法', done:0, total:3 },
+      { id:'rousaihou', name:'労災保険法', done:0, total:5 },
+      { id:'koyouhou', name:'雇用保険法', done:0, total:5 },
+      { id:'choushuuhou', name:'労働保険徴収法', done:0, total:4 },
+      { id:'roudou_ippan', name:'労働一般常識', done:0, total:2 },
+      { id:'kenpohou', name:'健康保険法', done:0, total:7 },
+      { id:'kokunenhou', name:'国民年金法', done:0, total:7 },
+      { id:'kounenhou', name:'厚生年金保険法', done:0, total:6 },
+      { id:'shakai_ippan', name:'社会保険一般常識', done:0, total:3 },
+    ]
+  },
+  select: {
+    label: '選択式ポイント問題集',
+    css: 'pcat-select',
+    color: '#ea4335',
+    items: [
+      { id:'roukihou', name:'労働基準法', done:0, total:4 },
+      { id:'aneihou', name:'労働安全衛生法', done:0, total:3 },
+      { id:'rousaihou', name:'労災保険法', done:0, total:5 },
+      { id:'koyouhou', name:'雇用保険法', done:0, total:5 },
+      { id:'roudou_ippan', name:'労働一般常識', done:0, total:5 },
+      { id:'kenpohou', name:'健康保険法', done:0, total:7 },
+      { id:'kokunenhou', name:'国民年金法', done:0, total:7 },
+      { id:'kounenhou', name:'厚生年金保険法', done:0, total:6 },
+      { id:'shakai_ippan', name:'社会保険一般常識', done:0, total:3 },
+    ]
+  },
+  summary: {
+    label: '総まとめ講座',
+    css: 'pcat-summary',
+    color: '#8b5cf6',
+    items: [
+      { id:'roumu', name:'労務管理', done:0, total:4 },
+      { id:'shakai_hoshou', name:'社会保障制度', done:0, total:4 },
+      { id:'keisan', name:'計算事例対策', done:0, total:1 },
+      { id:'hakusho', name:'白書・統計', done:0, total:9 },
+      { id:'oudan', name:'横断整理', done:0, total:10 },
+      { id:'hanrei', name:'判例学習', done:0, total:1 },
+      { id:'houkaisei', name:'法改正', done:0, total:4 },
+    ]
+  },
+};
+
+const TEMPLATES = [
+  { name: '基本講座 + スマート問題集', tasks: [
+    { text: '基本講座 視聴', time: 45 },
+    { text: 'スマート問題集', time: 15 },
+    { text: '間違えた問題の復習', time: 15 },
+  ]},
+  { name: '過去問演習Day', tasks: [
+    { text: 'セレクト過去問（択一式）', time: 30 },
+    { text: '選択式ポイント問題集', time: 20 },
+    { text: '解説確認・ノート整理', time: 20 },
+  ]},
+  { name: '横断学習Day', tasks: [
+    { text: '横断整理表の確認・更新', time: 20 },
+    { text: '単語帳で暗記チェック', time: 15 },
+    { text: '年号テスト', time: 10 },
+    { text: '弱点科目のスマート問題集', time: 30 },
+  ]},
+  { name: '総まとめDay', tasks: [
+    { text: '今日のまとめのまとめ 視聴', time: 60 },
+    { text: '重要ポイントのノート作成', time: 30 },
+    { text: '単語帳に追加', time: 15 },
+  ]},
+];
+
+const DEFAULT_CROSS_DATA = [
+  { category: '届出期限', items: [
+    { name: '被保険者資格取得届', values: {roukihou:'—',aneihou:'—',rousaihou:'—',koyouhou:'翌月10日',choushuuhou:'—',roudou_ippan:'—',kenpohou:'5日以内',kokunenhou:'14日以内',kounenhou:'5日以内',shakai_ippan:'—'} },
+    { name: '被保険者資格喪失届', values: {roukihou:'—',aneihou:'—',rousaihou:'—',koyouhou:'翌月10日',choushuuhou:'—',roudou_ippan:'—',kenpohou:'5日以内',kokunenhou:'14日以内',kounenhou:'5日以内',shakai_ippan:'—'} },
+  ]},
+  { category: '保険料率', items: [
+    { name: '保険料率（2026年度）', values: {roukihou:'—',aneihou:'—',rousaihou:'業種別',koyouhou:'15.5/1000',choushuuhou:'—',roudou_ippan:'—',kenpohou:'都道府県別',kokunenhou:'月額16,980円',kounenhou:'18.3%',shakai_ippan:'—'} },
+  ]},
+  { category: '不服申立て', items: [
+    { name: '審査機関', values: {roukihou:'—',aneihou:'—',rousaihou:'労災保険審査官',koyouhou:'雇用保険審査官',choushuuhou:'—',roudou_ippan:'—',kenpohou:'社会保険審査官',kokunenhou:'社会保険審査官',kounenhou:'社会保険審査官',shakai_ippan:'—'} },
+    { name: '再審査機関', values: {roukihou:'—',aneihou:'—',rousaihou:'労働保険審査会',koyouhou:'労働保険審査会',choushuuhou:'—',roudou_ippan:'—',kenpohou:'社会保険審査会',kokunenhou:'社会保険審査会',kounenhou:'社会保険審査会',shakai_ippan:'—'} },
+  ]},
+  { category: '時効', items: [
+    { name: '保険給付を受ける権利', values: {roukihou:'—',aneihou:'—',rousaihou:'2年/5年',koyouhou:'2年',choushuuhou:'—',roudou_ippan:'—',kenpohou:'2年',kokunenhou:'5年',kounenhou:'5年',shakai_ippan:'—'} },
+    { name: '保険料徴収権', values: {roukihou:'—',aneihou:'—',rousaihou:'—',koyouhou:'—',choushuuhou:'2年',roudou_ippan:'—',kenpohou:'2年',kokunenhou:'2年',kounenhou:'2年',shakai_ippan:'—'} },
+  ]},
+];
+
+const DEFAULT_YEARS = [
+  { year:'1922', title:'健康保険法制定', desc:'日本初の社会保険法', subject:'kenpohou' },
+  { year:'1947', title:'労働基準法・労災保険法制定', desc:'日本国憲法施行に伴う労働法整備', subject:'roukihou' },
+  { year:'1947', title:'失業保険法制定', desc:'雇用保険法の前身', subject:'koyouhou' },
+  { year:'1959', title:'国民年金法制定', desc:'1961年4月施行・国民皆年金', subject:'kokunenhou' },
+  { year:'1961', title:'国民皆保険・皆年金達成', desc:'国民健康保険法改正＋国民年金法施行', subject:'kokunenhou' },
+  { year:'1972', title:'労働安全衛生法制定', desc:'労基法から分離独立', subject:'aneihou' },
+  { year:'1974', title:'雇用保険法制定', desc:'失業保険法を全面改正', subject:'koyouhou' },
+  { year:'1985', title:'基礎年金制度導入', desc:'国民年金法大改正、2階建て年金制度', subject:'kokunenhou' },
+  { year:'1994', title:'育児休業法→育児・介護休業法', desc:'介護休業制度を追加', subject:'roudou_ippan' },
+  { year:'2000', title:'介護保険法施行', desc:'40歳以上が被保険者', subject:'shakai_ippan' },
+  { year:'2004', title:'年金制度改正', desc:'保険料水準固定方式・マクロ経済スライド導入', subject:'kounenhou' },
+  { year:'2006', title:'男女雇用機会均等法改正', desc:'間接差別の禁止', subject:'roudou_ippan' },
+  { year:'2008', title:'後期高齢者医療制度開始', desc:'75歳以上が対象', subject:'shakai_ippan' },
+  { year:'2015', title:'被用者年金一元化', desc:'共済年金が厚生年金に統合', subject:'kounenhou' },
+  { year:'2020', title:'パートタイム・有期雇用労働法施行', desc:'同一労働同一賃金（大企業）', subject:'roudou_ippan' },
+  { year:'2022', title:'育児・介護休業法大改正', desc:'産後パパ育休（出生時育児休業）新設', subject:'roudou_ippan' },
+];
+
+// ========================================
+// STORAGE
+// ========================================
+function getData(key, def) {
+  try { const d = localStorage.getItem('sharoshi_' + key); return d ? JSON.parse(d) : def; }
+  catch { return def; }
+}
+function setData(key, val) { localStorage.setItem('sharoshi_' + key, JSON.stringify(val)); }
+
+// ========================================
+// INIT
+// ========================================
+let currentFCIndex = 0;
+let fcCards = [];
+let yearQuizMode = false;
+let currentTaskDate = new Date().toISOString().slice(0, 10);
+
+function init() {
+  // Populate subject selects
+  document.querySelectorAll('.subject-select').forEach(sel => {
+    if (sel.id === 'year-subject') return;
+    SUBJECTS.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+  });
+  const ys = document.getElementById('year-subject');
+  SUBJECTS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name;
+    ys.appendChild(opt);
+  });
+
+  // Init defaults
+  if (!getData('progress_data', null)) setData('progress_data', DEFAULT_PROGRESS);
+  if (!getData('cross_data', null)) setData('cross_data', DEFAULT_CROSS_DATA);
+  if (!getData('years_data', null)) setData('years_data', DEFAULT_YEARS);
+
+  // Tab nav
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  buildCrossAddSubjects();
+  buildTemplates();
+  loadProgress();
+  loadFlashcards();
+  loadCrossTable();
+  loadYears();
+  loadTasks();
+}
+
+// ========================================
+// 0. PROGRESS
+// ========================================
+function loadProgress() {
+  const data = getData('progress_data', DEFAULT_PROGRESS);
+  const area = document.getElementById('progress-area');
+  let html = '';
+  let totalDone = 0, totalAll = 0;
+
+  for (const catKey in data) {
+    const cat = data[catKey];
+    let catDone = 0, catTotal = 0;
+    cat.items.forEach(it => { catDone += it.done; catTotal += it.total; });
+    totalDone += catDone;
+    totalAll += catTotal;
+    const catPct = catTotal === 0 ? 0 : Math.round(catDone / catTotal * 100);
+
+    html += `<div class="progress-category"><div class="card" style="padding:12px">`;
+    html += `<div class="progress-category-title ${cat.css}">
+      <span>${esc(cat.label)}</span>
+      <span>${catPct}%（${catDone}/${catTotal}）</span>
+    </div>`;
+
+    cat.items.forEach((item, idx) => {
+      const pct = item.total === 0 ? 0 : Math.round(item.done / item.total * 100);
+      const barColor = pct === 100 ? 'var(--success)' : (pct > 0 ? cat.color : 'var(--border)');
+      html += `<div class="progress-row">
+        <span class="progress-label">${esc(item.name)}</span>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%; background:${barColor}"></div>
+        </div>
+        <span class="progress-nums" style="color:${pct===100?'var(--success)':'var(--text)'}">${item.done}/${item.total}</span>
+        <div class="progress-btns">
+          <button onclick="changeProgress('${catKey}',${idx},-1)">−</button>
+          <button onclick="changeProgress('${catKey}',${idx},1)">＋</button>
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  }
+
+  area.innerHTML = html;
+
+  // Total
+  const totalPct = totalAll === 0 ? 0 : Math.round(totalDone / totalAll * 100);
+  document.getElementById('total-progress-bar').style.width = totalPct + '%';
+  document.getElementById('total-progress-text').textContent = `${totalPct}%（${totalDone} / ${totalAll} 完了）`;
+}
+
+function changeProgress(catKey, idx, delta) {
+  const data = getData('progress_data', DEFAULT_PROGRESS);
+  const item = data[catKey].items[idx];
+  item.done = Math.max(0, Math.min(item.total, item.done + delta));
+  setData('progress_data', data);
+  loadProgress();
+}
+
+// ========================================
+// 1. FLASHCARD
+// ========================================
+function loadFlashcards() {
+  const subj = document.getElementById('fc-subject').value;
+  const all = getData('flashcards', {});
+  fcCards = subj ? (all[subj] || []) : Object.values(all).flat();
+  currentFCIndex = 0;
+  if (fcCards.length === 0) {
+    document.getElementById('fc-study').style.display = 'none';
+    document.getElementById('fc-empty').style.display = 'block';
+  } else {
+    document.getElementById('fc-study').style.display = 'block';
+    document.getElementById('fc-empty').style.display = 'none';
+    showCard();
+  }
+  renderCardList();
+}
+
+function showCard() {
+  if (fcCards.length === 0) return;
+  const card = fcCards[currentFCIndex];
+  document.getElementById('fc-front-text').textContent = card.term;
+  document.getElementById('fc-back-text').textContent = card.def;
+  document.getElementById('fc-counter').textContent = `${currentFCIndex + 1} / ${fcCards.length}`;
+  document.getElementById('fc-card').classList.remove('flipped');
+}
+function flipCard() { document.getElementById('fc-card').classList.toggle('flipped'); }
+function nextCard() { if (fcCards.length === 0) return; currentFCIndex = (currentFCIndex + 1) % fcCards.length; showCard(); }
+function prevCard() { if (fcCards.length === 0) return; currentFCIndex = (currentFCIndex - 1 + fcCards.length) % fcCards.length; showCard(); }
+function shuffleCards() {
+  for (let i = fcCards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [fcCards[i], fcCards[j]] = [fcCards[j], fcCards[i]]; }
+  currentFCIndex = 0; showCard(); showToast('シャッフルしました');
+}
+
+function addFlashcard() {
+  const subj = document.getElementById('fc-add-subject').value;
+  const term = document.getElementById('fc-add-term').value.trim();
+  const def = document.getElementById('fc-add-def').value.trim();
+  if (!subj || !term || !def) { showToast('全項目を入力してください'); return; }
+  const all = getData('flashcards', {});
+  if (!all[subj]) all[subj] = [];
+  all[subj].push({ term, def, id: Date.now() });
+  setData('flashcards', all);
+  document.getElementById('fc-add-term').value = '';
+  document.getElementById('fc-add-def').value = '';
+  closeModal('fc-add-modal');
+  loadFlashcards();
+  showToast('カードを追加しました');
+}
+
+function deleteFlashcard(id) {
+  const all = getData('flashcards', {});
+  for (const subj in all) all[subj] = all[subj].filter(c => c.id !== id);
+  setData('flashcards', all);
+  loadFlashcards();
+  showToast('削除しました');
+}
+
+function toggleCardList() { const el = document.getElementById('fc-list'); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
+
+function renderCardList() {
+  const subj = document.getElementById('fc-subject').value;
+  const all = getData('flashcards', {});
+  const cards = subj ? (all[subj] || []) : Object.values(all).flat();
+  const inner = document.getElementById('fc-list-inner');
+  if (cards.length === 0) { inner.innerHTML = '<p style="text-align:center; color:var(--text-light); padding:16px;">カードがありません</p>'; return; }
+  inner.innerHTML = cards.map(c => `
+    <div class="card-list-item">
+      <span class="card-list-term">${esc(c.term)}</span>
+      <span class="card-list-def">${esc(c.def)}</span>
+      <div class="card-list-actions"><button class="btn btn-danger btn-sm" onclick="deleteFlashcard(${c.id})">✕</button></div>
+    </div>`).join('');
+}
+
+// ========================================
+// 2. CROSS TABLE
+// ========================================
+function loadCrossTable() {
+  const data = getData('cross_data', []);
+  const catArea = document.getElementById('cross-categories');
+  const tableArea = document.getElementById('cross-table-area');
+  if (data.length === 0) { catArea.innerHTML = ''; tableArea.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:20px;">横断項目を追加してください</p>'; return; }
+
+  const activeCat = getData('cross_active_cat', data[0].category);
+  catArea.innerHTML = data.map(d =>
+    `<span class="category-tab ${d.category === activeCat ? 'active' : ''}" onclick="selectCrossCat('${esc(d.category)}')">${esc(d.category)}</span>`
+  ).join('');
+
+  const catData = data.find(d => d.category === activeCat) || data[0];
+  let html = '<div class="cross-table-wrapper"><table class="cross-table"><thead><tr><th>項目</th>';
+  SUBJECTS.forEach(s => { html += `<th>${s.short}</th>`; });
+  html += '</tr></thead><tbody>';
+  catData.items.forEach((item, idx) => {
+    html += `<tr><td>${esc(item.name)} <button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px;float:right" onclick="deleteCrossItem('${esc(catData.category)}',${idx})">✕</button></td>`;
+    SUBJECTS.forEach(s => {
+      const val = item.values[s.id] || '—';
+      html += `<td contenteditable="true" data-cat="${esc(catData.category)}" data-idx="${idx}" data-subj="${s.id}" onblur="updateCrossCell(this)">${esc(val)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  tableArea.innerHTML = html;
+
+  document.getElementById('cross-cat-list').innerHTML = data.map(d => `<option value="${esc(d.category)}">`).join('');
+}
+
+function selectCrossCat(cat) { setData('cross_active_cat', cat); loadCrossTable(); }
+
+function updateCrossCell(td) {
+  const data = getData('cross_data', []);
+  const catData = data.find(d => d.category === td.dataset.cat);
+  if (catData && catData.items[parseInt(td.dataset.idx)]) {
+    catData.items[parseInt(td.dataset.idx)].values[td.dataset.subj] = td.textContent.trim();
+    setData('cross_data', data);
+  }
+}
+
+function buildCrossAddSubjects() {
+  document.getElementById('cross-add-subjects').innerHTML = SUBJECTS.map(s => `
+    <div class="form-group"><label>${s.name}（${s.short}）</label><input type="text" id="cross-val-${s.id}" placeholder="—"></div>
+  `).join('');
+}
+
+function addCrossItem() {
+  const cat = document.getElementById('cross-add-cat').value.trim();
+  const item = document.getElementById('cross-add-item').value.trim();
+  if (!cat || !item) { showToast('カテゴリと項目名を入力してください'); return; }
+  const values = {};
+  SUBJECTS.forEach(s => { values[s.id] = document.getElementById('cross-val-' + s.id).value.trim() || '—'; });
+  const data = getData('cross_data', []);
+  let catData = data.find(d => d.category === cat);
+  if (!catData) { catData = { category: cat, items: [] }; data.push(catData); }
+  catData.items.push({ name: item, values });
+  setData('cross_data', data);
+  setData('cross_active_cat', cat);
+  document.getElementById('cross-add-item').value = '';
+  SUBJECTS.forEach(s => { document.getElementById('cross-val-' + s.id).value = ''; });
+  closeModal('cross-add-modal');
+  loadCrossTable();
+  showToast('横断項目を追加しました');
+}
+
+function deleteCrossItem(cat, idx) {
+  const data = getData('cross_data', []);
+  const catData = data.find(d => d.category === cat);
+  if (catData) {
+    catData.items.splice(idx, 1);
+    if (catData.items.length === 0) data.splice(data.indexOf(catData), 1);
+    setData('cross_data', data);
+    loadCrossTable();
+    showToast('削除しました');
+  }
+}
+
+// ========================================
+// 3. YEARS
+// ========================================
+function loadYears() {
+  const subj = document.getElementById('year-subject').value;
+  const all = getData('years_data', []);
+  let years = subj === 'all' ? all : all.filter(y => y.subject === subj);
+  years.sort((a, b) => a.year.localeCompare(b.year));
+  const area = document.getElementById('year-list');
+  if (years.length === 0) { area.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:20px;">年号データがありません</p>'; return; }
+  area.innerHTML = years.map((y, i) => {
+    const subjName = SUBJECTS.find(s => s.id === y.subject)?.short || '';
+    return `<div class="year-card">
+      <div class="year-badge ${yearQuizMode ? 'year-hidden' : ''}" onclick="this.classList.toggle('revealed')">${y.year}</div>
+      <div class="year-info">
+        <div class="year-title">${esc(y.title)} <span class="badge badge-blue">${subjName}</span></div>
+        <div class="year-desc">${esc(y.desc || '')}</div>
+      </div>
+      <span class="task-delete" onclick="deleteYear(${i}, '${subj}')">&times;</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleYearQuiz() {
+  yearQuizMode = !yearQuizMode;
+  document.getElementById('year-quiz-btn').textContent = yearQuizMode ? '通常' : 'テスト';
+  document.getElementById('year-quiz-btn').className = yearQuizMode ? 'btn btn-danger' : 'btn btn-primary';
+  loadYears();
+}
+
+function addYear() {
+  const year = document.getElementById('year-add-year').value.trim();
+  const title = document.getElementById('year-add-title').value.trim();
+  const desc = document.getElementById('year-add-desc').value.trim();
+  const subject = document.getElementById('year-add-subject').value;
+  if (!year || !title || !subject) { showToast('年号・出来事・科目を入力してください'); return; }
+  const all = getData('years_data', []);
+  all.push({ year, title, desc, subject });
+  setData('years_data', all);
+  document.getElementById('year-add-year').value = '';
+  document.getElementById('year-add-title').value = '';
+  document.getElementById('year-add-desc').value = '';
+  closeModal('year-add-modal');
+  loadYears();
+  showToast('年号を追加しました');
+}
+
+function deleteYear(idx, subj) {
+  const all = getData('years_data', []);
+  let years = subj === 'all' ? all : all.filter(y => y.subject === subj);
+  years.sort((a, b) => a.year.localeCompare(b.year));
+  const realIdx = all.indexOf(years[idx]);
+  if (realIdx >= 0) { all.splice(realIdx, 1); setData('years_data', all); loadYears(); showToast('削除しました'); }
+}
+
+// ========================================
+// 4. TASKS
+// ========================================
+function loadTasks() {
+  document.getElementById('task-date').textContent = formatDate(currentTaskDate);
+  const tasks = getData('tasks_' + currentTaskDate, []);
+  const area = document.getElementById('task-list');
+  if (tasks.length === 0) {
+    area.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);">タスクがありません。追加しましょう！</p></div>';
+  } else {
+    area.innerHTML = tasks.map((t, i) => {
+      const subjName = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
+      return `<div class="task-item ${t.done ? 'done' : ''}">
+        <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTask(${i})">${t.done ? '✓' : ''}</div>
+        <span class="task-text">${esc(t.text)} ${subjName ? `<span class="badge badge-blue">${subjName}</span>` : ''}</span>
+        ${t.time ? `<span class="task-time">${t.time}分</span>` : ''}
+        <span class="task-delete" onclick="deleteTask(${i})">&times;</span>
+      </div>`;
+    }).join('');
+  }
+  const done = tasks.filter(t => t.done).length;
+  const total = tasks.length;
+  const pct = total === 0 ? 0 : Math.round(done / total * 100);
+  document.getElementById('task-progress-bar').style.width = pct + '%';
+  document.getElementById('task-stats-text').textContent = `${done} / ${total} 完了（${pct}%）`;
+  const totalTime = tasks.reduce((s, t) => s + (parseInt(t.time) || 0), 0);
+  const doneTime = tasks.filter(t => t.done).reduce((s, t) => s + (parseInt(t.time) || 0), 0);
+  document.getElementById('task-stats-time').textContent = `${doneTime}分 / ${totalTime}分`;
+}
+
+function toggleTask(idx) {
+  const tasks = getData('tasks_' + currentTaskDate, []);
+  if (tasks[idx]) { tasks[idx].done = !tasks[idx].done; setData('tasks_' + currentTaskDate, tasks); loadTasks(); }
+}
+
+function deleteTask(idx) {
+  const tasks = getData('tasks_' + currentTaskDate, []);
+  tasks.splice(idx, 1);
+  setData('tasks_' + currentTaskDate, tasks);
+  loadTasks();
+  showToast('削除しました');
+}
+
+function addTask() {
+  const text = document.getElementById('task-add-text').value.trim();
+  const time = document.getElementById('task-add-time').value.trim();
+  const subject = document.getElementById('task-add-subject').value;
+  if (!text) { showToast('タスク内容を入力してください'); return; }
+  const tasks = getData('tasks_' + currentTaskDate, []);
+  tasks.push({ text, time: time || '', subject, done: false, id: Date.now() });
+  setData('tasks_' + currentTaskDate, tasks);
+  document.getElementById('task-add-text').value = '';
+  document.getElementById('task-add-time').value = '';
+  closeModal('task-add-modal');
+  loadTasks();
+  showToast('タスクを追加しました');
+}
+
+function changeTaskDate(delta) {
+  const d = new Date(currentTaskDate);
+  d.setDate(d.getDate() + delta);
+  currentTaskDate = d.toISOString().slice(0, 10);
+  loadTasks();
+}
+
+function goToday() { currentTaskDate = new Date().toISOString().slice(0, 10); loadTasks(); }
+
+function buildTemplates() {
+  document.getElementById('template-list').innerHTML = TEMPLATES.map((t, i) => `
+    <div class="card" style="cursor:pointer" onclick="applyTemplate(${i})">
+      <div style="font-weight:700;margin-bottom:4px">${esc(t.name)}</div>
+      <div style="font-size:12px;color:var(--text-light)">${t.tasks.map(tk => `${esc(tk.text)}（${tk.time}分）`).join('、')}</div>
+    </div>`).join('');
+}
+
+function applyTemplate(idx) {
+  const tmpl = TEMPLATES[idx];
+  const tasks = getData('tasks_' + currentTaskDate, []);
+  tmpl.tasks.forEach(t => { tasks.push({ text: t.text, time: t.time, subject: '', done: false, id: Date.now() + Math.random() }); });
+  setData('tasks_' + currentTaskDate, tasks);
+  closeModal('task-template-modal');
+  loadTasks();
+  showToast(`「${tmpl.name}」を追加しました`);
+}
+
+// ========================================
+// UTILS
+// ========================================
+function formatDate(str) {
+  const d = new Date(str);
+  const days = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}/${d.getDate()}（${days[d.getDay()]}）`;
+}
+
+function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('show'); });
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// Swipe for flashcards
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+  const diff = e.changedTouches[0].clientX - touchStartX;
+  if (document.getElementById('flashcard').classList.contains('active') && Math.abs(diff) > 60) {
+    if (diff > 0) prevCard(); else nextCard();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
