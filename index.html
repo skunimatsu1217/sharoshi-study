@@ -261,6 +261,7 @@ textarea { resize: vertical; min-height: 60px; }
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="plan">計画</button>
   <button class="tab-btn" data-tab="tasks">タスク</button>
+  <button class="tab-btn" data-tab="timer">タイマー</button>
   <button class="tab-btn" data-tab="progress">進捗</button>
   <button class="tab-btn" data-tab="flashcard">単語帳</button>
   <button class="tab-btn" data-tab="cross">横断</button>
@@ -319,6 +320,45 @@ textarea { resize: vertical; min-height: 60px; }
     <div style="margin-top:12px; display:flex; gap:8px">
       <button class="btn btn-primary btn-block" onclick="openModal('task-add-modal')">＋ タスク追加</button>
       <button class="btn btn-outline btn-block" onclick="openModal('task-template-modal')">テンプレート</button>
+    </div>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 1.5 タイマー          -->
+  <!-- ==================== -->
+  <div id="timer" class="tab-content">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">復習・集中タイマー</div>
+      <p style="font-size:12px;color:var(--text-light);margin-bottom:12px">
+        時間を選択して「開始」→フルスクリーンで大型タイマーが起動。画面は消灯しません。
+      </p>
+
+      <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:4px">プリセット</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(5)">5分</button>
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(10)">10分</button>
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(15)">15分</button>
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(20)">20分</button>
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(25)">25分（ポモドーロ）</button>
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(30)">30分</button>
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(45)">45分</button>
+        <button class="btn btn-outline btn-sm" onclick="setTimerMin(60)">60分</button>
+      </div>
+
+      <div class="form-group">
+        <label>カスタム（分）</label>
+        <input type="number" id="timer-custom" placeholder="例：15" min="1" max="180">
+      </div>
+      <div class="form-group">
+        <label>ラベル（任意）</label>
+        <input type="text" id="timer-label" placeholder="例：健保 基本講座11の復習">
+      </div>
+
+      <button class="btn btn-primary btn-block" onclick="startTimer()">▶ フルスクリーン開始</button>
+      <p style="font-size:11px;color:var(--text-light);margin-top:10px;text-align:center">
+        💡 ホーム画面に追加すると、より集中しやすくなります<br>
+        Safari：共有ボタン → ホーム画面に追加
+      </p>
     </div>
   </div>
 
@@ -426,6 +466,105 @@ textarea { resize: vertical; min-height: 60px; }
   <h3>テンプレート</h3>
   <div id="template-list"></div>
 </div></div>
+
+<!-- Full-screen Timer Overlay -->
+<div id="timer-overlay">
+  <div id="timer-label-display"></div>
+  <div id="timer-display">00:00</div>
+  <div id="timer-progress-ring">
+    <svg width="280" height="280" viewBox="0 0 280 280">
+      <circle cx="140" cy="140" r="130" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"/>
+      <circle id="timer-ring" cx="140" cy="140" r="130" stroke="#fff" stroke-width="8" fill="none"
+              stroke-dasharray="816.8" stroke-dashoffset="0"
+              transform="rotate(-90 140 140)" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div id="timer-status">集中モード</div>
+  <div id="timer-controls">
+    <button class="timer-ctrl-btn" onclick="pauseTimer()" id="timer-pause-btn">一時停止</button>
+    <button class="timer-ctrl-btn" onclick="stopTimer()">終了</button>
+  </div>
+</div>
+
+<style>
+#timer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #1a1a2e, #0f3460);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  padding: 20px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#timer-overlay.active { display: flex; }
+#timer-overlay.finished {
+  background: linear-gradient(135deg, #d32f2f, #f44336);
+  animation: flash 0.5s infinite alternate;
+}
+@keyframes flash {
+  from { opacity: 1; }
+  to { opacity: 0.7; }
+}
+#timer-label-display {
+  font-size: 16px;
+  opacity: 0.8;
+  margin-bottom: 12px;
+  text-align: center;
+  max-width: 90%;
+  word-break: break-all;
+}
+#timer-display {
+  font-size: 72px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  position: absolute;
+  z-index: 2;
+}
+#timer-progress-ring {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#timer-ring { transition: stroke-dashoffset 1s linear; }
+#timer-status {
+  font-size: 14px;
+  opacity: 0.6;
+  margin-top: 16px;
+  letter-spacing: 2px;
+}
+#timer-controls {
+  position: absolute;
+  bottom: 40px;
+  display: flex;
+  gap: 16px;
+}
+.timer-ctrl-btn {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.4);
+  padding: 14px 28px;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+.timer-ctrl-btn:active { transform: scale(0.95); }
+@media (min-width: 600px) {
+  #timer-display { font-size: 96px; }
+  #timer-progress-ring { width: 360px; height: 360px; }
+  #timer-progress-ring svg { width: 360px; height: 360px; }
+}
+</style>
 
 <div class="toast" id="toast"></div>
 
@@ -1139,6 +1278,127 @@ function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 document.addEventListener('click',e=>{if(e.target.classList.contains('modal-overlay'))e.target.classList.remove('show');});
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+
+// ========================================
+// FOCUS TIMER (Fullscreen + Wake Lock)
+// ========================================
+let timerInterval = null;
+let timerRemaining = 0;
+let timerTotal = 0;
+let timerPaused = false;
+let wakeLock = null;
+let timerFinished = false;
+
+function setTimerMin(m) {
+  document.getElementById('timer-custom').value = m;
+  showToast(`${m}分に設定`);
+}
+
+async function startTimer() {
+  const custom = parseInt(document.getElementById('timer-custom').value);
+  if (!custom || custom < 1) { showToast('分数を入力してください'); return; }
+  const label = document.getElementById('timer-label').value.trim() || '集中タイム';
+
+  timerTotal = custom * 60;
+  timerRemaining = timerTotal;
+  timerPaused = false;
+  timerFinished = false;
+
+  document.getElementById('timer-label-display').textContent = label;
+  document.getElementById('timer-status').textContent = '集中モード';
+  document.getElementById('timer-pause-btn').textContent = '一時停止';
+  document.getElementById('timer-overlay').classList.add('active');
+  document.getElementById('timer-overlay').classList.remove('finished');
+
+  updateTimerDisplay();
+
+  // Wake Lock API - prevent screen from sleeping
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (e) { console.warn('Wake lock failed:', e); }
+
+  // Try fullscreen (works on Android / desktop; limited on iOS Safari)
+  try {
+    const el = document.getElementById('timer-overlay');
+    if (el.requestFullscreen) await el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  } catch (e) {}
+
+  timerInterval = setInterval(tickTimer, 1000);
+}
+
+function tickTimer() {
+  if (timerPaused) return;
+  timerRemaining--;
+  updateTimerDisplay();
+  if (timerRemaining <= 0) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    finishTimer();
+  }
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timerRemaining / 60);
+  const s = timerRemaining % 60;
+  document.getElementById('timer-display').textContent =
+    `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+
+  // Progress ring
+  const pct = timerTotal > 0 ? (timerTotal - timerRemaining) / timerTotal : 0;
+  const circumference = 2 * Math.PI * 130;
+  document.getElementById('timer-ring').style.strokeDashoffset = circumference * pct;
+}
+
+function pauseTimer() {
+  timerPaused = !timerPaused;
+  document.getElementById('timer-pause-btn').textContent = timerPaused ? '再開' : '一時停止';
+  document.getElementById('timer-status').textContent = timerPaused ? '一時停止中' : '集中モード';
+}
+
+async function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  document.getElementById('timer-overlay').classList.remove('active','finished');
+  if (wakeLock) { try { await wakeLock.release(); } catch(e){} wakeLock = null; }
+  if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch(e){} }
+}
+
+function finishTimer() {
+  timerFinished = true;
+  document.getElementById('timer-overlay').classList.add('finished');
+  document.getElementById('timer-display').textContent = '終了！';
+  document.getElementById('timer-status').textContent = 'お疲れさまでした';
+
+  // Vibration
+  if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 600]);
+
+  // Beep sound (Web Audio)
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const beep = (freq, start, dur) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.value = 0.3;
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + start);
+      o.stop(ctx.currentTime + start + dur);
+    };
+    beep(880, 0, 0.3);
+    beep(880, 0.4, 0.3);
+    beep(1046, 0.8, 0.6);
+  } catch(e) {}
+}
+
+// Re-acquire wake lock when page visible again
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && document.getElementById('timer-overlay').classList.contains('active') && 'wakeLock' in navigator && !wakeLock) {
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+  }
+});
 
 // Swipe
 let touchStartX=0;
