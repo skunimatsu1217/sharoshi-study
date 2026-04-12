@@ -346,7 +346,11 @@ textarea { resize: vertical; min-height: 60px; }
     <div id="today-list"></div>
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('today-add-modal')">＋ 勉強内容を追加</button>
-    <button class="btn btn-outline btn-block" style="margin-top:8px" onclick="openModal('review-add-modal')">📚 学習完了を記録（復習登録）</button>
+    <button class="btn btn-outline btn-block" style="margin-top:8px" onclick="carryOverToTomorrow()">⏭ 未完了を明日へ繰り越し</button>
+    <p style="font-size:11px;color:var(--text-light);margin-top:10px;text-align:center;line-height:1.6">
+      ✓チェックすると自動的に復習リストに登録されます<br>
+      学習日＝チェックした日になります
+    </p>
   </div>
 
   <!-- ==================== -->
@@ -688,10 +692,11 @@ function loadToday() {
   } else {
     area.innerHTML = tasks.map((t, i) => {
       const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
+      const linked = t.reviewId ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
       return `<div class="task-item ${t.done ? 'done' : ''}">
         <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>
         <div class="task-text">
-          ${esc(t.text)}
+          ${esc(t.text)} ${linked}
           ${sn ? `<div class="task-subj">${sn}</div>` : ''}
         </div>
         <button class="task-delete" onclick="deleteToday(${i})">×</button>
@@ -723,20 +728,85 @@ function addTodayTask() {
 function toggleToday(idx) {
   const ts = todayStr();
   const tasks = getData('today_' + ts, []);
-  if (tasks[idx]) {
-    tasks[idx].done = !tasks[idx].done;
-    setData('today_' + ts, tasks);
-    loadToday();
+  if (!tasks[idx]) return;
+
+  tasks[idx].done = !tasks[idx].done;
+
+  if (tasks[idx].done) {
+    // Auto-register to review list (studiedDate = today)
+    const items = getData('review_items', []);
+    const reviewId = Date.now() + Math.random();
+    items.push({
+      id: reviewId,
+      text: tasks[idx].text,
+      subject: tasks[idx].subject || '',
+      studiedDate: ts,
+      completedReviews: [false, false, false, false, false],
+      autoLinked: true,
+    });
+    setData('review_items', items);
+    tasks[idx].reviewId = reviewId;
+    showToast('復習リストに登録しました');
+  } else {
+    // Remove linked review item
+    if (tasks[idx].reviewId) {
+      let items = getData('review_items', []);
+      items = items.filter(it => it.id !== tasks[idx].reviewId);
+      setData('review_items', items);
+      delete tasks[idx].reviewId;
+      showToast('復習登録を解除しました');
+    }
   }
+
+  setData('today_' + ts, tasks);
+  loadToday();
+  loadReview();
 }
 
 function deleteToday(idx) {
   const ts = todayStr();
   const tasks = getData('today_' + ts, []);
+  if (!tasks[idx]) return;
+
+  // If linked review exists, remove it too
+  if (tasks[idx].reviewId) {
+    let items = getData('review_items', []);
+    items = items.filter(it => it.id !== tasks[idx].reviewId);
+    setData('review_items', items);
+  }
+
   tasks.splice(idx, 1);
   setData('today_' + ts, tasks);
   loadToday();
+  loadReview();
   showToast('削除しました');
+}
+
+function carryOverToTomorrow() {
+  const ts = todayStr();
+  const tasks = getData('today_' + ts, []);
+  const undone = tasks.filter(t => !t.done);
+  const done = tasks.filter(t => t.done);
+
+  if (undone.length === 0) { showToast('未完了タスクはありません'); return; }
+  if (!confirm(`${undone.length}件を明日へ繰り越しますか？`)) return;
+
+  const tomorrow = addDays(ts, 1);
+  const tomorrowTasks = getData('today_' + tomorrow, []);
+
+  undone.forEach(t => {
+    tomorrowTasks.push({
+      text: t.text,
+      subject: t.subject,
+      done: false,
+      id: Date.now() + Math.random(),
+    });
+  });
+
+  setData('today_' + tomorrow, tomorrowTasks);
+  setData('today_' + ts, done); // Keep only done tasks in today
+  loadToday();
+  showToast(`${undone.length}件を明日へ繰り越しました`);
 }
 
 // ==== REVIEW ====
