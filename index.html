@@ -528,65 +528,65 @@ const GOALS = [
 ];
 
 const SUBJECTS = [
-  { id:'roukihou', name:'労働基準法', short:'労基' },
-  { id:'aneihou', name:'労働安全衛生法', short:'安衛' },
-  { id:'rousaihou', name:'労災保険法', short:'労災' },
   { id:'koyouhou', name:'雇用保険法', short:'雇用' },
-  { id:'choushuuhou', name:'労働保険徴収法', short:'徴収' },
-  { id:'roudou_ippan', name:'労働一般常識', short:'労一' },
+  { id:'kounenhou', name:'厚生年金保険法', short:'厚年' },
   { id:'kenpohou', name:'健康保険法', short:'健保' },
   { id:'kokunenhou', name:'国民年金法', short:'国年' },
-  { id:'kounenhou', name:'厚生年金保険法', short:'厚年' },
+  { id:'aneihou', name:'労働安全衛生法', short:'安衛' },
   { id:'shakai_ippan', name:'社会保険一般常識', short:'社一' },
+  { id:'choushuuhou', name:'労働保険徴収法', short:'徴収' },
+  { id:'rousaihou', name:'労災保険法', short:'労災' },
+  { id:'roudou_ippan', name:'労働一般常識', short:'労一' },
+  { id:'roukihou', name:'労働基準法', short:'労基' },
 ];
 
 const DEFAULT_PROGRESS = {
   kihon: { label:'基本講座', css:'pcat-lecture', color:'#1a73e8', items: [
-    { id:'roukihou',name:'労働基準法',done:0,total:20 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
     { id:'koyouhou',name:'雇用保険法',done:1,total:20 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
     { id:'kenpohou',name:'健康保険法',done:10,total:24 },
     { id:'kokunenhou',name:'国民年金法',done:3,total:24 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
     { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
+    { id:'roukihou',name:'労働基準法',done:0,total:20 },
   ]},
   smart: { label:'スマート問題集', css:'pcat-smart', color:'#34a853', items: [
-    { id:'roukihou',name:'労働基準法',done:2,total:20 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
     { id:'koyouhou',name:'雇用保険法',done:1,total:20 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
     { id:'kenpohou',name:'健康保険法',done:7,total:24 },
     { id:'kokunenhou',name:'国民年金法',done:3,total:24 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
     { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
+    { id:'roukihou',name:'労働基準法',done:2,total:20 },
   ]},
   past: { label:'セレクト過去問集', css:'pcat-past', color:'#b5890a', items: [
-    { id:'roukihou',name:'労働基準法',done:0,total:3 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
     { id:'koyouhou',name:'雇用保険法',done:0,total:5 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:4 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:2 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
     { id:'kenpohou',name:'健康保険法',done:0,total:7 },
     { id:'kokunenhou',name:'国民年金法',done:0,total:7 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
     { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:3 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:4 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:2 },
+    { id:'roukihou',name:'労働基準法',done:0,total:3 },
   ]},
   select: { label:'選択式ポイント問題集', css:'pcat-select', color:'#ea4335', items: [
-    { id:'roukihou',name:'労働基準法',done:0,total:4 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
     { id:'koyouhou',name:'雇用保険法',done:0,total:5 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:5 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
     { id:'kenpohou',name:'健康保険法',done:0,total:7 },
     { id:'kokunenhou',name:'国民年金法',done:0,total:7 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
     { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:3 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:5 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
+    { id:'roukihou',name:'労働基準法',done:0,total:4 },
   ]},
   summary: { label:'総まとめ講座', css:'pcat-summary', color:'#8b5cf6', items: [
     { id:'roumu',name:'労務管理',done:0,total:4 },
@@ -725,7 +725,7 @@ function renderCardList() {
 
 // ==== PROGRESS ====
 function loadProgress() {
-  const data = getData('progress_data', DEFAULT_PROGRESS);
+  const data = getData('progress_data_v2', DEFAULT_PROGRESS);
   const area = document.getElementById('progress-area');
   let html = '', totalDone = 0, totalAll = 0;
 
@@ -764,10 +764,10 @@ function loadProgress() {
 }
 
 function changeProgress(catKey, idx, delta) {
-  const data = getData('progress_data', DEFAULT_PROGRESS);
+  const data = getData('progress_data_v2', DEFAULT_PROGRESS);
   const item = data[catKey].items[idx];
   item.done = Math.max(0, Math.min(item.total, item.done + delta));
-  setData('progress_data', data);
+  setData('progress_data_v2', data);
   loadProgress();
 }
 
@@ -913,14 +913,14 @@ function quickAdd(type) {
     });
     msg = '130日目標の1日分を追加しました';
   } else if (type === 'kenpohou_continue') {
-    const prog = getData('progress_data', DEFAULT_PROGRESS);
+    const prog = getData('progress_data_v2', DEFAULT_PROGRESS);
     const done = prog.kihon.items.find(it => it.id === 'kenpohou')?.done || 0;
     for (let i = 1; i <= 3; i++) {
       tasks.push({ text:`📹 健保 基本講座 ${done + i}`, subject:'kenpohou', done:false, id:Date.now()+Math.random()+i });
     }
     msg = '健保 基本講座3本を追加';
   } else if (type === 'kokunenhou_continue') {
-    const prog = getData('progress_data', DEFAULT_PROGRESS);
+    const prog = getData('progress_data_v2', DEFAULT_PROGRESS);
     const done = prog.kihon.items.find(it => it.id === 'kokunenhou')?.done || 0;
     for (let i = 1; i <= 3; i++) {
       tasks.push({ text:`📹 国年 基本講座 ${done + i}`, subject:'kokunenhou', done:false, id:Date.now()+Math.random()+i });
