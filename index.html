@@ -264,10 +264,10 @@ textarea { resize: vertical; min-height: 60px; }
 </div>
 
 <div class="tab-nav">
-  <button class="tab-btn active" data-tab="flashcard">単語帳</button>
+  <button class="tab-btn active" data-tab="today">今日</button>
   <button class="tab-btn" data-tab="progress">進捗</button>
-  <button class="tab-btn" data-tab="today">今日</button>
   <button class="tab-btn" data-tab="review">復習</button>
+  <button class="tab-btn" data-tab="flashcard">単語帳</button>
 </div>
 
 <div class="content">
@@ -275,7 +275,7 @@ textarea { resize: vertical; min-height: 60px; }
   <!-- ==================== -->
   <!-- 単語帳                 -->
   <!-- ==================== -->
-  <div id="flashcard" class="tab-content active">
+  <div id="flashcard" class="tab-content">
     <select class="subject-select" id="fc-subject" onchange="loadFlashcards()">
       <option value="">-- 全科目 --</option>
     </select>
@@ -334,7 +334,7 @@ textarea { resize: vertical; min-height: 60px; }
   <!-- ==================== -->
   <!-- 今日                  -->
   <!-- ==================== -->
-  <div id="today" class="tab-content">
+  <div id="today" class="tab-content active">
     <div class="card">
       <div class="day-header">
         <h3 id="today-date">今日の勉強</h3>
