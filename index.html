@@ -327,10 +327,35 @@ textarea { resize: vertical; min-height: 60px; }
   <!-- 1.5 タイマー          -->
   <!-- ==================== -->
   <div id="timer" class="tab-content">
+
+    <!-- iOS Native Timer Guide -->
+    <div class="card" style="background:linear-gradient(135deg,#e8f0fe,#f3e8fd);border:2px solid var(--primary)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;color:var(--primary)">📱 スタディングアプリと併用する場合</div>
+      <p style="font-size:12px;line-height:1.7;margin-bottom:10px">
+        他アプリと併用する時は、<strong>iOS標準のタイマー</strong>を使ってください。<br>
+        OSレベルで動作するため、どのアプリを開いていても正確に動き、終了時にアラームが鳴ります。
+      </p>
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px">起動方法：</div>
+      <div style="font-size:12px;line-height:1.8;padding-left:8px">
+        🎤 <strong>Siri</strong>「Hey Siri、25分のタイマー」<br>
+        📲 <strong>コントロールセンター</strong>右上から下スワイプ→タイマー長押し<br>
+        ⏰ <strong>時計アプリ</strong>→タイマータブ
+      </div>
+      <div style="margin-top:10px;padding:8px;background:rgba(255,255,255,0.7);border-radius:6px;font-size:11px;color:var(--text-light)">
+        💡 <strong>おすすめ手順：</strong><br>
+        ①「Hey Siri、25分タイマー」で開始<br>
+        ② スタディングアプリを開いて学習<br>
+        ③ アラームが鳴ったら休憩 or 次の復習へ
+      </div>
+    </div>
+
     <div class="card">
-      <div style="font-size:14px;font-weight:700;margin-bottom:8px">復習・集中タイマー</div>
-      <p style="font-size:12px;color:var(--text-light);margin-bottom:12px">
-        時間を選択して「開始」→フルスクリーンで大型タイマーが起動。画面は消灯しません。
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">Webタイマー（ブラウザ内専用）</div>
+      <p style="font-size:12px;color:var(--text-light);margin-bottom:6px">
+        このツール内で復習する時専用。フルスクリーンで大型タイマーが起動、画面は消灯しません。
+      </p>
+      <p style="font-size:11px;color:var(--danger);margin-bottom:12px">
+        ⚠️ 他のアプリに切り替えると止まります（iOSの制約）
       </p>
 
       <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:4px">プリセット</div>
@@ -355,10 +380,6 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
 
       <button class="btn btn-primary btn-block" onclick="startTimer()">▶ フルスクリーン開始</button>
-      <p style="font-size:11px;color:var(--text-light);margin-top:10px;text-align:center">
-        💡 ホーム画面に追加すると、より集中しやすくなります<br>
-        Safari：共有ボタン → ホーム画面に追加
-      </p>
     </div>
   </div>
 
