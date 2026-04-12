@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>社労士 単語帳 2026</title>
+<title>社労士 学習ツール 2026</title>
 <style>
 :root {
   --primary: #1a73e8;
@@ -14,6 +14,7 @@
   --text-light: #666;
   --border: #e0e0e0;
   --success: #34a853;
+  --warning: #fbbc04;
   --danger: #ea4335;
   --accent: #8b5cf6;
   --shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -37,7 +38,23 @@ body {
 .countdown-num { font-size: 28px; font-weight: 800; line-height: 1; }
 .countdown-label { font-size: 10px; opacity: 0.8; }
 
+.tab-nav {
+  display: flex; background: var(--card); border-bottom: 1px solid var(--border);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  position: sticky; top: 58px; z-index: 99;
+}
+.tab-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex: 1; min-width: 70px; padding: 12px 8px;
+  font-size: 13px; font-weight: 600; border: none; background: none;
+  color: var(--text-light); cursor: pointer; white-space: nowrap;
+  border-bottom: 3px solid transparent; transition: all 0.2s;
+}
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
 .content { max-width: 800px; margin: 0 auto; padding: 16px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
 .card {
   background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
@@ -59,24 +76,27 @@ body {
 }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:active { background: var(--primary-dark); }
+.btn-success { background: var(--success); color: white; }
 .btn-danger { background: var(--danger); color: white; }
 .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
-.btn-sm { padding: 8px 14px; font-size: 13px; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
 .btn-block { width: 100%; }
 
-input[type="text"], textarea {
+input[type="text"], input[type="number"], textarea, select {
   width: 100%; padding: 12px 14px; border: 2px solid var(--border);
   border-radius: 8px; font-size: 15px; transition: border-color 0.2s;
 }
 input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
-textarea { resize: vertical; min-height: 80px; }
+textarea { resize: vertical; min-height: 60px; }
 .form-group { margin-bottom: 14px; }
 .form-group label {
   display: block; font-size: 12px; font-weight: 600;
   color: var(--text-light); margin-bottom: 6px;
 }
 
-/* Flashcard */
+/* ==================== */
+/* FLASHCARD            */
+/* ==================== */
 .flashcard-container { perspective: 1000px; margin: 16px 0; }
 .flashcard {
   width: 100%; min-height: 240px; position: relative; cursor: pointer;
@@ -90,48 +110,115 @@ textarea { resize: vertical; min-height: 80px; }
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
 .flashcard-front { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
-.flashcard-back {
-  background: linear-gradient(135deg, var(--success), #2ecc71);
-  color: white; transform: rotateY(180deg);
-}
-.flashcard-label {
-  font-size: 11px; letter-spacing: 2px; opacity: 0.7; margin-bottom: 14px;
-}
-.flashcard-text {
-  font-size: 22px; font-weight: 700; line-height: 1.6; word-break: break-all;
-}
-.flashcard-nav {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 14px; gap: 8px;
-}
+.flashcard-back { background: linear-gradient(135deg, var(--success), #2ecc71); color: white; transform: rotateY(180deg); }
+.flashcard-label { font-size: 11px; letter-spacing: 2px; opacity: 0.7; margin-bottom: 14px; }
+.flashcard-text { font-size: 22px; font-weight: 700; line-height: 1.6; word-break: break-all; }
+.flashcard-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 8px; }
 .flashcard-counter { font-size: 14px; font-weight: 600; color: var(--text-light); }
-.flashcard-empty {
-  text-align: center; padding: 60px 20px; color: var(--text-light);
-}
+.flashcard-empty { text-align: center; padding: 40px 20px; color: var(--text-light); }
 .flashcard-empty h3 { font-size: 16px; margin-bottom: 8px; color: var(--text); }
-.flashcard-empty p { font-size: 13px; }
 
-/* Card list */
 .card-list-item {
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px;
 }
 .card-list-item:last-child { border-bottom: none; }
 .card-list-content { flex: 1; min-width: 0; }
-.card-list-term { font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 4px; }
+.card-list-term { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 .card-list-def { font-size: 13px; color: var(--text-light); line-height: 1.5; }
 .card-list-delete {
   flex-shrink: 0; color: var(--danger); cursor: pointer;
   font-size: 20px; padding: 0 6px; background: none; border: none;
 }
 
-.stats-bar {
-  display: flex; justify-content: space-between; font-size: 12px;
-  color: var(--text-light); padding: 8px 4px 12px;
-}
+.stats-bar { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); padding: 8px 4px 12px; }
 .stats-bar strong { color: var(--text); font-size: 14px; }
 
-/* Modal */
+/* ==================== */
+/* PROGRESS             */
+/* ==================== */
+.progress-total-bar { height: 12px; background: var(--border); border-radius: 6px; overflow: hidden; margin: 8px 0; }
+.progress-total-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.5s; }
+.progress-total-text { text-align: center; font-size: 14px; font-weight: 700; color: var(--text-light); }
+
+.progress-cat-title {
+  font-size: 14px; font-weight: 700; margin-bottom: 8px; padding: 8px 12px;
+  border-radius: 8px; display: flex; justify-content: space-between; align-items: center;
+}
+.pcat-lecture { background: #e8f0fe; color: var(--primary); }
+.pcat-smart { background: #e6f4ea; color: var(--success); }
+.pcat-past { background: #fef7e0; color: #b5890a; }
+.pcat-select { background: #fce8e6; color: var(--danger); }
+.pcat-summary { background: #f3e8fd; color: var(--accent); }
+
+.progress-row {
+  display: flex; align-items: center; padding: 8px 10px;
+  border-bottom: 1px solid var(--border); gap: 8px;
+}
+.progress-row:last-child { border-bottom: none; }
+.progress-label { flex: 1; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progress-bar-wrap { width: 70px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+.progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.progress-nums { font-size: 13px; font-weight: 700; min-width: 52px; text-align: right; white-space: nowrap; }
+.progress-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.progress-btns button {
+  width: 30px; height: 30px; border: 1px solid var(--border); background: var(--card);
+  border-radius: 6px; font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.progress-btns button:active { background: var(--bg); }
+
+/* ==================== */
+/* TODAY / REVIEW       */
+/* ==================== */
+.day-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.day-header h3 { font-size: 16px; }
+
+.task-item {
+  display: flex; align-items: center; padding: 12px;
+  border-radius: 8px; margin-bottom: 6px; background: #f8f9fa; gap: 10px;
+}
+.task-item.done { opacity: 0.5; }
+.task-item.done .task-text { text-decoration: line-through; }
+.task-check {
+  width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border);
+  cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: white;
+}
+.task-check.checked { background: var(--success); border-color: var(--success); }
+.task-text { flex: 1; font-size: 14px; min-width: 0; }
+.task-subj { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+.task-delete { color: var(--danger); cursor: pointer; font-size: 20px; padding: 0 4px; background: none; border: none; }
+
+.review-due-today { border-left: 4px solid var(--danger); }
+.review-upcoming { border-left: 4px solid var(--border); }
+
+.review-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 700; margin-left: 6px;
+}
+.rb-1d { background: #fce8e6; color: var(--danger); }
+.rb-3d { background: #fef7e0; color: #b5890a; }
+.rb-7d { background: #e8f0fe; color: var(--primary); }
+.rb-14d { background: #e6f4ea; color: var(--success); }
+.rb-30d { background: #f3e8fd; color: var(--accent); }
+
+.review-overdue {
+  background: #fce8e6; font-size: 11px; font-weight: 700;
+  color: var(--danger); padding: 2px 8px; border-radius: 10px; margin-left: 6px;
+}
+
+.section-title {
+  font-size: 13px; font-weight: 700; color: var(--text-light);
+  margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 1px;
+}
+
+/* ==================== */
+/* MODAL                */
+/* ==================== */
 .modal-overlay {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
   z-index: 200; align-items: flex-end; justify-content: center;
@@ -160,7 +247,6 @@ textarea { resize: vertical; min-height: 80px; }
 @media (min-width: 600px) {
   .header-left h1 { font-size: 20px; }
   .flashcard-text { font-size: 26px; }
-  .flashcard-face, .flashcard { min-height: 280px; }
 }
 </style>
 </head>
@@ -168,7 +254,7 @@ textarea { resize: vertical; min-height: 80px; }
 
 <div class="header">
   <div class="header-left">
-    <h1>社労士 単語帳 2026</h1>
+    <h1>社労士 学習ツール 2026</h1>
     <p>スタディング合格コース対応</p>
   </div>
   <div class="countdown">
@@ -177,72 +263,165 @@ textarea { resize: vertical; min-height: 80px; }
   </div>
 </div>
 
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="flashcard">単語帳</button>
+  <button class="tab-btn" data-tab="progress">進捗</button>
+  <button class="tab-btn" data-tab="today">今日</button>
+  <button class="tab-btn" data-tab="review">復習</button>
+</div>
+
 <div class="content">
 
-  <select class="subject-select" id="fc-subject" onchange="loadFlashcards()">
-    <option value="">-- 全科目 --</option>
-  </select>
+  <!-- ==================== -->
+  <!-- 単語帳                 -->
+  <!-- ==================== -->
+  <div id="flashcard" class="tab-content active">
+    <select class="subject-select" id="fc-subject" onchange="loadFlashcards()">
+      <option value="">-- 全科目 --</option>
+    </select>
 
-  <div id="fc-study" style="display:none">
-    <div class="stats-bar">
-      <span>科目別: <strong id="fc-subject-count">0</strong> 枚</span>
-      <span>総数: <strong id="fc-total-count">0</strong> 枚</span>
-    </div>
-
-    <div class="flashcard-container">
-      <div class="flashcard" id="fc-card" onclick="flipCard()">
-        <div class="flashcard-face flashcard-front">
-          <div class="flashcard-label">用語</div>
-          <div class="flashcard-text" id="fc-front-text"></div>
+    <div id="fc-study" style="display:none">
+      <div class="stats-bar">
+        <span>科目: <strong id="fc-subject-count">0</strong> 枚</span>
+        <span>総数: <strong id="fc-total-count">0</strong> 枚</span>
+      </div>
+      <div class="flashcard-container">
+        <div class="flashcard" id="fc-card" onclick="flipCard()">
+          <div class="flashcard-face flashcard-front">
+            <div class="flashcard-label">用語</div>
+            <div class="flashcard-text" id="fc-front-text"></div>
+          </div>
+          <div class="flashcard-face flashcard-back">
+            <div class="flashcard-label">意味・解説</div>
+            <div class="flashcard-text" id="fc-back-text"></div>
+          </div>
         </div>
-        <div class="flashcard-face flashcard-back">
-          <div class="flashcard-label">意味・解説</div>
-          <div class="flashcard-text" id="fc-back-text"></div>
-        </div>
+      </div>
+      <div class="flashcard-nav">
+        <button class="btn btn-outline btn-sm" onclick="prevCard()">◀ 前</button>
+        <span class="flashcard-counter" id="fc-counter">1 / 1</span>
+        <button class="btn btn-outline btn-sm" onclick="shuffleCards()">🔀</button>
+        <button class="btn btn-outline btn-sm" onclick="nextCard()">次 ▶</button>
       </div>
     </div>
 
-    <div class="flashcard-nav">
-      <button class="btn btn-outline btn-sm" onclick="prevCard()">◀ 前</button>
-      <span class="flashcard-counter" id="fc-counter">1 / 1</span>
-      <button class="btn btn-outline btn-sm" onclick="shuffleCards()">🔀</button>
-      <button class="btn btn-outline btn-sm" onclick="nextCard()">次 ▶</button>
+    <div id="fc-empty" class="flashcard-empty">
+      <h3>カードがありません</h3>
+      <p>下の「＋カード追加」から作成してください</p>
+    </div>
+
+    <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px">
+      <button class="btn btn-primary btn-block" onclick="openModal('fc-add-modal')">＋ カード追加</button>
+      <button class="btn btn-outline btn-block" onclick="toggleCardList()" id="fc-list-toggle">一覧表示</button>
+    </div>
+    <div id="fc-list" style="display:none; margin-top:12px">
+      <div class="card" id="fc-list-inner"></div>
     </div>
   </div>
 
-  <div id="fc-empty" class="flashcard-empty">
-    <h3>カードがありません</h3>
-    <p>下の「＋カード追加」から作成してください</p>
+  <!-- ==================== -->
+  <!-- 進捗                  -->
+  <!-- ==================== -->
+  <div id="progress" class="tab-content">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">全体進捗</div>
+      <div class="progress-total-bar"><div class="progress-total-fill" id="total-progress-bar"></div></div>
+      <div class="progress-total-text" id="total-progress-text">0%</div>
+    </div>
+    <div id="progress-area"></div>
   </div>
 
-  <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px">
-    <button class="btn btn-primary btn-block" onclick="openModal('fc-add-modal')">＋ カード追加</button>
-    <button class="btn btn-outline btn-block" onclick="toggleCardList()" id="fc-list-toggle">一覧表示</button>
+  <!-- ==================== -->
+  <!-- 今日                  -->
+  <!-- ==================== -->
+  <div id="today" class="tab-content">
+    <div class="card">
+      <div class="day-header">
+        <h3 id="today-date">今日の勉強</h3>
+        <span id="today-stats" style="font-size:12px;color:var(--text-light)">0 / 0</span>
+      </div>
+      <div class="progress-total-bar"><div class="progress-total-fill" id="today-progress-bar"></div></div>
+    </div>
+
+    <div id="today-list"></div>
+
+    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('today-add-modal')">＋ 勉強内容を追加</button>
+    <button class="btn btn-outline btn-block" style="margin-top:8px" onclick="openModal('review-add-modal')">📚 学習完了を記録（復習登録）</button>
   </div>
 
-  <div id="fc-list" style="display:none; margin-top:12px">
-    <div class="card" id="fc-list-inner"></div>
+  <!-- ==================== -->
+  <!-- 復習                  -->
+  <!-- ==================== -->
+  <div id="review" class="tab-content">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">今日の復習</div>
+      <div style="font-size:12px;color:var(--text-light)">忘却曲線（1日/3日/7日/14日/30日後）に基づき自動表示</div>
+    </div>
+
+    <div class="section-title" id="review-today-label">今日やるべき復習</div>
+    <div id="review-today-list"></div>
+
+    <div class="section-title">今後の復習予定（7日間）</div>
+    <div id="review-upcoming-list"></div>
+
+    <div class="section-title">全ての学習記録</div>
+    <div id="review-all-list"></div>
+
+    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('review-add-modal')">＋ 学習完了を記録</button>
   </div>
 </div>
 
-<!-- Add Modal -->
+<!-- Modals -->
 <div class="modal-overlay" id="fc-add-modal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('fc-add-modal')">&times;</button>
     <h3>カード追加</h3>
-    <div class="form-group">
-      <label>科目</label>
+    <div class="form-group"><label>科目</label>
       <select class="subject-select" id="fc-add-subject" style="margin-bottom:0"></select>
     </div>
-    <div class="form-group">
-      <label>用語（表面）</label>
+    <div class="form-group"><label>用語（表面）</label>
       <input type="text" id="fc-add-term" placeholder="例：平均賃金">
     </div>
-    <div class="form-group">
-      <label>意味・解説（裏面）</label>
+    <div class="form-group"><label>意味・解説（裏面）</label>
       <textarea id="fc-add-def" placeholder="例：算定事由発生日以前3か月間の賃金総額÷総日数"></textarea>
     </div>
     <button class="btn btn-primary btn-block" onclick="addFlashcard()">追加</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="today-add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('today-add-modal')">&times;</button>
+    <h3>今日の勉強内容を追加</h3>
+    <div class="form-group"><label>内容</label>
+      <input type="text" id="today-add-text" placeholder="例：健保 基本講座11〜13">
+    </div>
+    <div class="form-group"><label>科目（任意）</label>
+      <select class="subject-select" id="today-add-subject" style="margin-bottom:0">
+        <option value="">--</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="addTodayTask()">追加</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="review-add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('review-add-modal')">&times;</button>
+    <h3>学習完了を記録</h3>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:12px">
+      記録すると、1日・3日・7日・14日・30日後に復習タスクが自動表示されます
+    </p>
+    <div class="form-group"><label>学習内容</label>
+      <input type="text" id="review-add-text" placeholder="例：健保 基本講座11 - 費用の負担">
+    </div>
+    <div class="form-group"><label>科目</label>
+      <select class="subject-select" id="review-add-subject" style="margin-bottom:0"></select>
+    </div>
+    <div class="form-group"><label>学習日</label>
+      <input type="date" id="review-add-date">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="addReviewItem()">記録</button>
   </div>
 </div>
 
@@ -250,28 +429,107 @@ textarea { resize: vertical; min-height: 80px; }
 
 <script>
 const EXAM_DATE = new Date('2026-08-23');
+const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
+const REVIEW_LABELS = ['1日後','3日後','7日後','14日後','30日後'];
 
 const SUBJECTS = [
-  { id:'roukihou', name:'労働基準法' },
-  { id:'aneihou', name:'労働安全衛生法' },
-  { id:'rousaihou', name:'労災保険法' },
-  { id:'koyouhou', name:'雇用保険法' },
-  { id:'choushuuhou', name:'労働保険徴収法' },
-  { id:'roudou_ippan', name:'労働一般常識' },
-  { id:'kenpohou', name:'健康保険法' },
-  { id:'kokunenhou', name:'国民年金法' },
-  { id:'kounenhou', name:'厚生年金保険法' },
-  { id:'shakai_ippan', name:'社会保険一般常識' },
+  { id:'roukihou', name:'労働基準法', short:'労基' },
+  { id:'aneihou', name:'労働安全衛生法', short:'安衛' },
+  { id:'rousaihou', name:'労災保険法', short:'労災' },
+  { id:'koyouhou', name:'雇用保険法', short:'雇用' },
+  { id:'choushuuhou', name:'労働保険徴収法', short:'徴収' },
+  { id:'roudou_ippan', name:'労働一般常識', short:'労一' },
+  { id:'kenpohou', name:'健康保険法', short:'健保' },
+  { id:'kokunenhou', name:'国民年金法', short:'国年' },
+  { id:'kounenhou', name:'厚生年金保険法', short:'厚年' },
+  { id:'shakai_ippan', name:'社会保険一般常識', short:'社一' },
 ];
 
-// Storage
+const DEFAULT_PROGRESS = {
+  kihon: { label:'基本講座', css:'pcat-lecture', color:'#1a73e8', items: [
+    { id:'roukihou',name:'労働基準法',done:0,total:20 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
+    { id:'koyouhou',name:'雇用保険法',done:1,total:20 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
+    { id:'kenpohou',name:'健康保険法',done:10,total:24 },
+    { id:'kokunenhou',name:'国民年金法',done:3,total:24 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
+  ]},
+  smart: { label:'スマート問題集', css:'pcat-smart', color:'#34a853', items: [
+    { id:'roukihou',name:'労働基準法',done:2,total:20 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
+    { id:'koyouhou',name:'雇用保険法',done:1,total:20 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
+    { id:'kenpohou',name:'健康保険法',done:7,total:24 },
+    { id:'kokunenhou',name:'国民年金法',done:3,total:24 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
+  ]},
+  past: { label:'セレクト過去問集', css:'pcat-past', color:'#b5890a', items: [
+    { id:'roukihou',name:'労働基準法',done:0,total:3 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
+    { id:'koyouhou',name:'雇用保険法',done:0,total:5 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:4 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:2 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:7 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:7 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:3 },
+  ]},
+  select: { label:'選択式ポイント問題集', css:'pcat-select', color:'#ea4335', items: [
+    { id:'roukihou',name:'労働基準法',done:0,total:4 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
+    { id:'koyouhou',name:'雇用保険法',done:0,total:5 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:5 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:7 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:7 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:3 },
+  ]},
+  summary: { label:'総まとめ講座', css:'pcat-summary', color:'#8b5cf6', items: [
+    { id:'roumu',name:'労務管理',done:0,total:4 },
+    { id:'shakai_hoshou',name:'社会保障制度',done:0,total:4 },
+    { id:'keisan',name:'計算事例対策',done:0,total:1 },
+    { id:'oudan',name:'横断整理',done:0,total:10 },
+    { id:'matome',name:'今日のまとめのまとめ',done:0,total:10 },
+  ]},
+};
+
+// ==== Storage ====
 function getData(k, d) {
   try { const v = localStorage.getItem('sharoshi_' + k); return v ? JSON.parse(v) : d; }
   catch { return d; }
 }
 function setData(k, v) { localStorage.setItem('sharoshi_' + k, JSON.stringify(v)); }
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function addDays(dateStr, n) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0,10);
+}
+function formatDate(s) {
+  const d = new Date(s);
+  const days = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}/${d.getDate()}（${days[d.getDay()]}）`;
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
 
-// Flashcard state
+// ==== FLASHCARD ====
 let currentFCIndex = 0;
 let fcCards = [];
 
@@ -280,7 +538,6 @@ function loadFlashcards() {
   const all = getData('flashcards', {});
   fcCards = subj ? (all[subj] || []) : Object.values(all).flat();
   currentFCIndex = 0;
-
   if (fcCards.length === 0) {
     document.getElementById('fc-study').style.display = 'none';
     document.getElementById('fc-empty').style.display = 'block';
@@ -289,12 +546,9 @@ function loadFlashcards() {
     document.getElementById('fc-empty').style.display = 'none';
     showCard();
   }
-
-  // Update counts
   const totalCount = Object.values(all).flat().length;
   document.getElementById('fc-subject-count').textContent = fcCards.length;
   document.getElementById('fc-total-count').textContent = totalCount;
-
   renderCardList();
 }
 
@@ -308,19 +562,8 @@ function showCard() {
 }
 
 function flipCard() { document.getElementById('fc-card').classList.toggle('flipped'); }
-
-function nextCard() {
-  if (fcCards.length === 0) return;
-  currentFCIndex = (currentFCIndex + 1) % fcCards.length;
-  showCard();
-}
-
-function prevCard() {
-  if (fcCards.length === 0) return;
-  currentFCIndex = (currentFCIndex - 1 + fcCards.length) % fcCards.length;
-  showCard();
-}
-
+function nextCard() { if (fcCards.length === 0) return; currentFCIndex = (currentFCIndex + 1) % fcCards.length; showCard(); }
+function prevCard() { if (fcCards.length === 0) return; currentFCIndex = (currentFCIndex - 1 + fcCards.length) % fcCards.length; showCard(); }
 function shuffleCards() {
   if (fcCards.length === 0) return;
   for (let i = fcCards.length - 1; i > 0; i--) {
@@ -337,25 +580,21 @@ function addFlashcard() {
   const term = document.getElementById('fc-add-term').value.trim();
   const def = document.getElementById('fc-add-def').value.trim();
   if (!subj || !term || !def) { showToast('全項目を入力してください'); return; }
-
   const all = getData('flashcards', {});
   if (!all[subj]) all[subj] = [];
   all[subj].push({ term, def, id: Date.now() });
   setData('flashcards', all);
-
   document.getElementById('fc-add-term').value = '';
   document.getElementById('fc-add-def').value = '';
   closeModal('fc-add-modal');
   loadFlashcards();
-  showToast('カードを追加しました');
+  showToast('追加しました');
 }
 
 function deleteFlashcard(id) {
-  if (!confirm('このカードを削除しますか？')) return;
+  if (!confirm('削除しますか？')) return;
   const all = getData('flashcards', {});
-  for (const subj in all) {
-    all[subj] = all[subj].filter(c => c.id !== id);
-  }
+  for (const s in all) all[s] = all[s].filter(c => c.id !== id);
   setData('flashcards', all);
   loadFlashcards();
   showToast('削除しました');
@@ -374,12 +613,10 @@ function renderCardList() {
   const all = getData('flashcards', {});
   const cards = subj ? (all[subj] || []) : Object.values(all).flat();
   const inner = document.getElementById('fc-list-inner');
-
   if (cards.length === 0) {
     inner.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:20px">カードがありません</p>';
     return;
   }
-
   inner.innerHTML = cards.map(c => `
     <div class="card-list-item">
       <div class="card-list-content">
@@ -391,32 +628,282 @@ function renderCardList() {
   `).join('');
 }
 
-// Utils
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function openModal(id) { document.getElementById(id).classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('show');
-});
+// ==== PROGRESS ====
+function loadProgress() {
+  const data = getData('progress_data', DEFAULT_PROGRESS);
+  const area = document.getElementById('progress-area');
+  let html = '', totalDone = 0, totalAll = 0;
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+  for (const catKey in data) {
+    const cat = data[catKey];
+    let cDone = 0, cTotal = 0;
+    cat.items.forEach(it => { cDone += it.done; cTotal += it.total; });
+    totalDone += cDone; totalAll += cTotal;
+    const pct = cTotal === 0 ? 0 : Math.round(cDone / cTotal * 100);
+
+    html += `<div class="card" style="padding:12px">`;
+    html += `<div class="progress-cat-title ${cat.css}">
+      <span>${esc(cat.label)}</span>
+      <span>${pct}% (${cDone}/${cTotal})</span>
+    </div>`;
+    cat.items.forEach((item, idx) => {
+      const p = item.total === 0 ? 0 : Math.round(item.done / item.total * 100);
+      const bc = p === 100 ? 'var(--success)' : (p > 0 ? cat.color : 'var(--border)');
+      html += `<div class="progress-row">
+        <span class="progress-label">${esc(item.name)}</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${p}%;background:${bc}"></div></div>
+        <span class="progress-nums" style="color:${p===100?'var(--success)':'var(--text)'}">${item.done}/${item.total}</span>
+        <div class="progress-btns">
+          <button onclick="changeProgress('${catKey}',${idx},-1)">−</button>
+          <button onclick="changeProgress('${catKey}',${idx},1)">＋</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  area.innerHTML = html;
+
+  const totalPct = totalAll === 0 ? 0 : Math.round(totalDone / totalAll * 100);
+  document.getElementById('total-progress-bar').style.width = totalPct + '%';
+  document.getElementById('total-progress-text').textContent = `${totalPct}% （${totalDone} / ${totalAll}）`;
 }
 
-// Swipe navigation for flashcards
+function changeProgress(catKey, idx, delta) {
+  const data = getData('progress_data', DEFAULT_PROGRESS);
+  const item = data[catKey].items[idx];
+  item.done = Math.max(0, Math.min(item.total, item.done + delta));
+  setData('progress_data', data);
+  loadProgress();
+}
+
+// ==== TODAY ====
+function loadToday() {
+  const ts = todayStr();
+  document.getElementById('today-date').textContent = `${formatDate(ts)} の勉強`;
+  const tasks = getData('today_' + ts, []);
+  const area = document.getElementById('today-list');
+
+  if (tasks.length === 0) {
+    area.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px">勉強内容を追加しましょう</p></div>';
+  } else {
+    area.innerHTML = tasks.map((t, i) => {
+      const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
+      return `<div class="task-item ${t.done ? 'done' : ''}">
+        <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>
+        <div class="task-text">
+          ${esc(t.text)}
+          ${sn ? `<div class="task-subj">${sn}</div>` : ''}
+        </div>
+        <button class="task-delete" onclick="deleteToday(${i})">×</button>
+      </div>`;
+    }).join('');
+  }
+
+  const done = tasks.filter(t => t.done).length;
+  const total = tasks.length;
+  const pct = total === 0 ? 0 : Math.round(done / total * 100);
+  document.getElementById('today-stats').textContent = `${done} / ${total} 完了`;
+  document.getElementById('today-progress-bar').style.width = pct + '%';
+}
+
+function addTodayTask() {
+  const text = document.getElementById('today-add-text').value.trim();
+  const subject = document.getElementById('today-add-subject').value;
+  if (!text) { showToast('内容を入力してください'); return; }
+  const ts = todayStr();
+  const tasks = getData('today_' + ts, []);
+  tasks.push({ text, subject, done: false, id: Date.now() });
+  setData('today_' + ts, tasks);
+  document.getElementById('today-add-text').value = '';
+  closeModal('today-add-modal');
+  loadToday();
+  showToast('追加しました');
+}
+
+function toggleToday(idx) {
+  const ts = todayStr();
+  const tasks = getData('today_' + ts, []);
+  if (tasks[idx]) {
+    tasks[idx].done = !tasks[idx].done;
+    setData('today_' + ts, tasks);
+    loadToday();
+  }
+}
+
+function deleteToday(idx) {
+  const ts = todayStr();
+  const tasks = getData('today_' + ts, []);
+  tasks.splice(idx, 1);
+  setData('today_' + ts, tasks);
+  loadToday();
+  showToast('削除しました');
+}
+
+// ==== REVIEW ====
+// Data structure: review_items = [{id, text, subject, studiedDate, completedReviews: [false,false,false,false,false]}]
+function addReviewItem() {
+  const text = document.getElementById('review-add-text').value.trim();
+  const subject = document.getElementById('review-add-subject').value;
+  const date = document.getElementById('review-add-date').value || todayStr();
+  if (!text || !subject) { showToast('内容と科目を入力してください'); return; }
+
+  const items = getData('review_items', []);
+  items.push({
+    id: Date.now(),
+    text, subject,
+    studiedDate: date,
+    completedReviews: [false, false, false, false, false],
+  });
+  setData('review_items', items);
+  document.getElementById('review-add-text').value = '';
+  closeModal('review-add-modal');
+  loadReview();
+  showToast('記録しました');
+}
+
+function getReviewInfo(item) {
+  // Returns array of review objects {interval, label, dueDate, idx, status: 'done'|'due'|'overdue'|'upcoming'}
+  const result = [];
+  REVIEW_INTERVALS.forEach((interval, i) => {
+    const dueDate = addDays(item.studiedDate, interval);
+    const today = todayStr();
+    let status;
+    if (item.completedReviews[i]) status = 'done';
+    else if (dueDate < today) status = 'overdue';
+    else if (dueDate === today) status = 'due';
+    else status = 'upcoming';
+    result.push({ interval, label: REVIEW_LABELS[i], dueDate, idx: i, status });
+  });
+  return result;
+}
+
+function toggleReviewDone(itemId, reviewIdx) {
+  const items = getData('review_items', []);
+  const item = items.find(it => it.id === itemId);
+  if (item) {
+    item.completedReviews[reviewIdx] = !item.completedReviews[reviewIdx];
+    setData('review_items', items);
+    loadReview();
+  }
+}
+
+function deleteReviewItem(itemId) {
+  if (!confirm('この学習記録を削除しますか？')) return;
+  let items = getData('review_items', []);
+  items = items.filter(it => it.id !== itemId);
+  setData('review_items', items);
+  loadReview();
+  showToast('削除しました');
+}
+
+function loadReview() {
+  const items = getData('review_items', []);
+  const today = todayStr();
+  const next7 = addDays(today, 7);
+
+  // Today's due + overdue
+  const dueToday = [];
+  const upcoming = [];
+
+  items.forEach(item => {
+    const reviews = getReviewInfo(item);
+    reviews.forEach(r => {
+      if (r.status === 'due' || r.status === 'overdue') {
+        dueToday.push({ item, review: r });
+      } else if (r.status === 'upcoming' && r.dueDate <= next7) {
+        upcoming.push({ item, review: r });
+      }
+    });
+  });
+
+  // Sort upcoming by date
+  upcoming.sort((a, b) => a.review.dueDate.localeCompare(b.review.dueDate));
+
+  // Render due today
+  const dueArea = document.getElementById('review-today-list');
+  document.getElementById('review-today-label').textContent = `今日やるべき復習（${dueToday.length}件）`;
+  if (dueToday.length === 0) {
+    dueArea.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px">今日の復習はありません 🎉</p></div>';
+  } else {
+    dueArea.innerHTML = dueToday.map(({ item, review }) => {
+      const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
+      const isOverdue = review.status === 'overdue';
+      return `<div class="task-item review-due-today">
+        <div class="task-check" onclick="toggleReviewDone(${item.id},${review.idx})"></div>
+        <div class="task-text">
+          ${esc(item.text)}
+          <span class="review-badge rb-${review.interval}d">${review.label}</span>
+          ${isOverdue ? `<span class="review-overdue">期限超過</span>` : ''}
+          <div class="task-subj">${sn} | 学習: ${formatDate(item.studiedDate)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Render upcoming
+  const upArea = document.getElementById('review-upcoming-list');
+  if (upcoming.length === 0) {
+    upArea.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px;font-size:12px">7日以内の復習予定はありません</p></div>';
+  } else {
+    upArea.innerHTML = upcoming.slice(0, 20).map(({ item, review }) => {
+      const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
+      return `<div class="task-item review-upcoming">
+        <div class="task-text">
+          ${esc(item.text)}
+          <span class="review-badge rb-${review.interval}d">${review.label}</span>
+          <div class="task-subj">${sn} | ${formatDate(review.dueDate)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Render all records
+  const allArea = document.getElementById('review-all-list');
+  if (items.length === 0) {
+    allArea.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px;font-size:12px">学習記録なし</p></div>';
+  } else {
+    // Sort by studied date desc
+    const sorted = [...items].sort((a, b) => b.studiedDate.localeCompare(a.studiedDate));
+    allArea.innerHTML = sorted.map(item => {
+      const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
+      const reviews = getReviewInfo(item);
+      const doneCount = reviews.filter(r => r.status === 'done').length;
+      const dots = reviews.map(r => {
+        const color = r.status === 'done' ? 'var(--success)' :
+                      r.status === 'due' ? 'var(--danger)' :
+                      r.status === 'overdue' ? 'var(--danger)' : 'var(--border)';
+        return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin:0 2px"></span>`;
+      }).join('');
+      return `<div class="card" style="padding:10px 12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600">${esc(item.text)}</div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} | ${formatDate(item.studiedDate)} | 復習 ${doneCount}/5</div>
+            <div style="margin-top:4px">${dots}</div>
+          </div>
+          <button class="card-list-delete" onclick="deleteReviewItem(${item.id})">×</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ==== Swipe ====
 let touchStartX = 0;
 document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
 document.addEventListener('touchend', e => {
   const diff = e.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(diff) > 60 && fcCards.length > 0) {
+  if (document.getElementById('flashcard').classList.contains('active') && Math.abs(diff) > 60 && fcCards.length > 0) {
     if (diff > 0) prevCard(); else nextCard();
   }
 });
 
-// Init
+// ==== Click overlay to close modal ====
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('show');
+});
+
+// ==== INIT ====
 function init() {
   // Countdown
   const today = new Date();
@@ -433,7 +920,26 @@ function init() {
     });
   });
 
+  // Default date for review
+  document.getElementById('review-add-date').value = todayStr();
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'progress') loadProgress();
+      if (btn.dataset.tab === 'today') loadToday();
+      if (btn.dataset.tab === 'review') loadReview();
+    });
+  });
+
   loadFlashcards();
+  loadProgress();
+  loadToday();
+  loadReview();
 }
 
 init();
