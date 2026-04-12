@@ -458,224 +458,231 @@ const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
 const REVIEW_LABELS = ['1日後','3日後','7日後','14日後','30日後'];
 const REVIEW_CSS = ['review-1d','review-3d','review-7d','review-14d','review-30d'];
 
-// Study order: subjects with remaining lecture counts
-// Continuing from current progress, then new subjects
-const STUDY_ORDER = [
-  // Currently in progress - finish first
-  { id:'kenpohou',     name:'健康保険法',     short:'健保', basicRemain:14, smartRemain:17, basicStart:11, smartStart:8 },
-  { id:'kokunenhou',   name:'国民年金法',     short:'国年', basicRemain:21, smartRemain:21, basicStart:4, smartStart:4 },
-  { id:'koyouhou',     name:'雇用保険法',     short:'雇用', basicRemain:19, smartRemain:19, basicStart:2, smartStart:2 },
-  { id:'roukihou',     name:'労働基準法',     short:'労基', basicRemain:20, smartRemain:18, basicStart:1, smartStart:3 },
-  // New subjects
-  { id:'aneihou',      name:'労働安全衛生法', short:'安衛', basicRemain:10, smartRemain:10, basicStart:1, smartStart:1 },
-  { id:'rousaihou',    name:'労災保険法',     short:'労災', basicRemain:18, smartRemain:18, basicStart:1, smartStart:1 },
-  { id:'choushuuhou',  name:'労働保険徴収法', short:'徴収', basicRemain:12, smartRemain:12, basicStart:1, smartStart:1 },
-  { id:'kounenhou',    name:'厚生年金保険法', short:'厚年', basicRemain:24, smartRemain:24, basicStart:1, smartStart:1 },
-  { id:'roudou_ippan', name:'労働一般常識',   short:'労一', basicRemain:12, smartRemain:12, basicStart:1, smartStart:1 },
-  { id:'shakai_ippan', name:'社会保険一般常識',short:'社一', basicRemain:10, smartRemain:10, basicStart:1, smartStart:1 },
+// Real course data extracted from Studying 2026 Excel
+// Each entry: [lectureNumber, minutes]
+const COURSE_DATA = {
+  kihon: {
+    roukihou: [[1,39],[2,34],[3,22],[4,47],[5,22],[6,35],[7,40],[8,79],[9,75],[10,57],[11,65],[12,34],[13,43],[14,62],[15,57],[16,39],[17,50],[18,67],[19,42],[20,55]],
+    aneihou: [[1,32],[2,62],[3,47],[4,48],[5,36],[6,43],[7,70],[8,47],[9,48],[10,31]],
+    rousaihou: [[1,37],[2,79],[3,31],[4,31],[5,44],[6,56],[7,39],[8,56],[9,35],[10,56],[11,38],[12,42],[13,41],[14,54],[15,23],[16,48],[17,63],[18,15]],
+    koyouhou: [[1,24],[2,39],[3,55],[4,57],[5,26],[6,36],[7,29],[8,96],[9,51],[10,32],[11,35],[12,38],[13,47],[14,23],[15,53],[16,35],[17,84],[18,106],[19,52],[20,44]],
+    choushuuhou: [[1,51],[2,54],[3,49],[4,22],[5,66],[6,80],[7,47],[8,45],[9,24],[10,42],[11,24],[12,20]],
+    roudou_ippan: [[1,60],[2,91],[3,28],[4,63],[5,56],[6,52],[7,138],[8,44],[9,38],[10,79],[11,50],[12,65]],
+    kenpohou: [[1,29],[2,32],[3,31],[4,27],[5,93],[6,82],[7,27],[8,48],[9,69],[10,86],[11,34],[12,33],[13,38],[14,45],[15,28],[16,30],[17,62],[18,46],[19,75],[20,63],[21,51],[22,37],[23,42],[24,39]],
+    kokunenhou: [[1,53],[2,61],[3,53],[4,38],[5,56],[6,24],[7,31],[8,38],[9,54],[10,28],[11,31],[12,71],[13,74],[14,82],[15,72],[16,53],[17,72],[18,67],[19,87],[20,37],[21,34],[22,16],[23,29],[24,21]],
+    kounenhou: [[1,20],[2,27],[3,25],[4,29],[5,17],[6,46],[7,28],[8,72],[9,51],[10,32],[11,43],[12,37],[13,47],[14,43],[15,51],[16,64],[17,60],[18,44],[19,21],[20,39],[21,38],[22,72],[23,26],[24,38]],
+    shakai_ippan: [[1,65],[2,20],[3,67],[4,57],[5,54],[6,18],[7,32],[8,41],[9,85],[10,81]],
+  },
+  smart: {
+    roukihou: [[1,11],[2,12],[3,12],[4,13],[5,10],[6,15],[7,12],[8,15],[9,13],[10,11],[11,10],[12,12],[13,9],[14,10],[15,9],[16,15],[17,15],[18,15],[19,12],[20,24]],
+    aneihou: [[1,10],[2,14],[3,10],[4,6],[5,7],[6,13],[7,15],[8,12],[9,10],[10,10]],
+    rousaihou: [[1,9],[2,11],[3,10],[4,7],[5,9],[6,12],[7,7],[8,16],[9,10],[10,11],[11,11],[12,11],[13,11],[14,10],[15,10],[16,10],[17,10],[18,10]],
+    koyouhou: [[1,6],[2,10],[3,9],[4,10],[5,6],[6,10],[7,9],[8,10],[9,10],[10,10],[11,11],[12,10],[13,10],[14,10],[15,10],[16,6],[17,10],[18,10],[19,10],[20,10]],
+    choushuuhou: [[1,10],[2,10],[3,10],[4,8],[5,10],[6,10],[7,10],[8,11],[9,8],[10,10],[11,10],[12,10]],
+    roudou_ippan: [[1,10],[2,12],[3,6],[4,7],[5,10],[6,10],[7,10],[8,6],[9,10],[10,10],[11,10],[12,10]],
+    kenpohou: [[1,9],[2,10],[3,12],[4,10],[5,11],[6,12],[7,11],[8,10],[9,10],[10,10],[11,6],[12,8],[13,11],[14,10],[15,10],[16,14],[17,14],[18,13],[19,11],[20,10],[21,10],[22,10],[23,12],[24,10]],
+    kokunenhou: [[1,10],[2,12],[3,14],[4,14],[5,13],[6,12],[7,11],[8,13],[9,13],[10,10],[11,10],[12,10],[13,11],[14,12],[15,10],[16,15],[17,14],[18,15],[19,6],[20,12],[21,13],[22,5],[23,13],[24,14]],
+    kounenhou: [[1,13],[2,11],[3,15],[4,9],[5,11],[6,8],[7,12],[8,10],[9,11],[10,11],[11,11],[12,9],[13,11],[14,3],[15,11],[16,17],[17,14],[18,13],[19,11],[20,6],[21,16],[22,11],[23,9],[24,10]],
+    shakai_ippan: [[1,11],[2,14],[3,19],[4,13],[5,19],[6,14],[7,14],[8,16],[9,15],[10,13]],
+  },
+  past: {
+    roukihou: [[1,12],[2,18],[3,18]],
+    aneihou: [[1,15],[2,12],[3,18]],
+    rousaihou: [[1,18],[2,9],[3,9],[4,12],[5,21]],
+    koyouhou: [[1,15],[2,9],[3,15],[4,15],[5,18]],
+    choushuuhou: [[1,18],[2,12],[3,9],[4,12]],
+    roudou_ippan: [[1,15],[2,15]],
+    kenpohou: [[1,9],[2,9],[3,9],[4,12],[5,15],[6,9],[7,9]],
+    kokunenhou: [[1,9],[2,9],[3,15],[4,12],[5,12],[6,12],[7,9]],
+    kounenhou: [[1,15],[2,15],[3,12],[4,9],[5,12],[6,9]],
+    shakai_ippan: [[1,12],[2,12],[3,18]],
+  },
+  select: {
+    roukihou: [[1,21],[2,25],[3,21]],
+    aneihou: [[1,14],[2,15],[3,11]],
+    rousaihou: [[1,10],[2,6],[3,11],[4,19],[5,21]],
+    koyouhou: [[1,16],[2,5],[3,11],[4,14],[5,19]],
+    roudou_ippan: [[1,12],[2,11],[3,13],[4,7],[5,12]],
+    kenpohou: [[1,9],[2,9],[3,7],[4,14],[5,13],[6,9],[7,21]],
+    kokunenhou: [[1,10],[2,9],[3,10],[4,8],[5,11],[6,21],[7,13]],
+    kounenhou: [[1,8],[2,18],[3,7],[4,16],[5,5],[6,9]],
+    shakai_ippan: [[1,15],[2,11],[3,26]],
+  },
+  summary: [['労務管理1',33],['労務管理2',27],['労務管理3',57],['労務管理4',30],['社会保障制度1',25],['社会保障制度2',20],['社会保障制度3',30],['社会保障制度の沿革',23],['計算系問題対策',85]],
+  oudan: [['横断整理1-総則1',43],['横断整理2-総則2',106],['横断整理3-費用負担1',51],['横断整理4-費用負担2',93],['横断整理5-費用負担3',28],['横断整理6-給付の通則1',22],['横断整理7-給付の通則2',61],['横断整理8-給付制限等',36],['横断整理9-不服申立て',23],['横断整理10-雑則',38]],
+  matome: [['今日のまとめ-労基',62],['今日のまとめ-安衛',55],['今日のまとめ-労災',93],['今日のまとめ-雇用',106],['今日のまとめ-徴収',82],['今日のまとめ-労一',61],['今日のまとめ-健保',117],['今日のまとめ-国年',156],['今日のまとめ-厚年',140],['今日のまとめ-社一',57]],
+};
+
+// Study order: in-progress subjects first, then new subjects
+const SUBJECT_ORDER = [
+  { id:'kenpohou',     short:'健保' },
+  { id:'kokunenhou',   short:'国年' },
+  { id:'koyouhou',     short:'雇用' },
+  { id:'roukihou',     short:'労基' },
+  { id:'aneihou',      short:'安衛' },
+  { id:'rousaihou',    short:'労災' },
+  { id:'choushuuhou',  short:'徴収' },
+  { id:'kounenhou',    short:'厚年' },
+  { id:'roudou_ippan', short:'労一' },
+  { id:'shakai_ippan', short:'社一' },
 ];
 
-// Past exam & selection problem order
-const OUTPUT_ORDER = [
-  { id:'roukihou',     short:'労基', pastRemain:3, selectRemain:4 },
-  { id:'aneihou',      short:'安衛', pastRemain:3, selectRemain:3 },
-  { id:'rousaihou',    short:'労災', pastRemain:5, selectRemain:5 },
-  { id:'koyouhou',     short:'雇用', pastRemain:5, selectRemain:5 },
-  { id:'choushuuhou',  short:'徴収', pastRemain:4, selectRemain:0 },
-  { id:'roudou_ippan', short:'労一', pastRemain:2, selectRemain:5 },
-  { id:'kenpohou',     short:'健保', pastRemain:7, selectRemain:7 },
-  { id:'kokunenhou',   short:'国年', pastRemain:7, selectRemain:7 },
-  { id:'kounenhou',    short:'厚年', pastRemain:6, selectRemain:6 },
-  { id:'shakai_ippan', short:'社一', pastRemain:3, selectRemain:3 },
-];
-
-const SUMMARY_ORDER = [
-  { id:'roumu', name:'労務管理', total:4 },
-  { id:'shakai_hoshou', name:'社会保障制度', total:4 },
-  { id:'keisan', name:'計算事例対策', total:1 },
-  { id:'hakusho', name:'白書・統計', total:9 },
-  { id:'oudan', name:'横断整理', total:10 },
-  { id:'hanrei', name:'判例学習', total:1 },
-  { id:'houkaisei', name:'法改正', total:4 },
-];
+// Initial progress (completed count per subject, 1-indexed skip)
+const PROGRESS_INIT = {
+  kihon: { roukihou:0, aneihou:0, rousaihou:0, koyouhou:1, choushuuhou:0, roudou_ippan:0, kenpohou:10, kokunenhou:3, kounenhou:0, shakai_ippan:0 },
+  smart: { roukihou:2, aneihou:0, rousaihou:0, koyouhou:1, choushuuhou:0, roudou_ippan:0, kenpohou:7, kokunenhou:3, kounenhou:0, shakai_ippan:0 },
+};
 
 // ========================================
-// GENERATE FULL STUDY SCHEDULE
+// GENERATE FULL STUDY SCHEDULE (real-time based)
+// Target: 150min new learning + 30min reviews = 180min/day
 // ========================================
 function generateSchedule() {
-  const cached = getData('study_schedule_v3', null);
+  const cached = getData('study_schedule_v5', null);
   if (cached) return cached;
 
-  const schedule = {}; // dateStr -> [tasks]
-  let dayOffset = 0;
+  const TARGET_NEW = 150; // target minutes for new learning
+  const schedule = {};
 
   function addDate(offset) {
     const d = new Date(START_DATE);
     d.setDate(d.getDate() + offset);
     return d.toISOString().slice(0,10);
   }
-
   function addTask(dateStr, task) {
     if (!schedule[dateStr]) schedule[dateStr] = [];
     schedule[dateStr].push(task);
   }
-
-  function addReviews(dateStr, subjectShort, lectureNum, type) {
-    const baseDate = new Date(dateStr);
+  function addReviews(baseDateStr, text) {
+    const base = new Date(baseDateStr);
     REVIEW_INTERVALS.forEach((interval, i) => {
-      const reviewDate = new Date(baseDate);
-      reviewDate.setDate(reviewDate.getDate() + interval);
-      const rd = reviewDate.toISOString().slice(0,10);
-      if (reviewDate < EXAM_DATE) {
-        addTask(rd, {
-          type: 'review',
-          text: `[復習${REVIEW_LABELS[i]}] ${subjectShort} ${type}${lectureNum}`,
-          time: i < 2 ? 15 : 10, // Early reviews take longer
-          css: 'plan-task-review',
-          reviewLevel: i,
-        });
-      }
-    });
-  }
-
-  // ==============================
-  // PHASE 1: Input (基本講座 + スマート問題集)
-  // Each day: ~3 lecture units (基本 + スマート)
-  // ==============================
-  let currentDay = 0;
-  const phase1Tasks = [];
-
-  STUDY_ORDER.forEach(subj => {
-    const maxUnits = Math.max(subj.basicRemain, subj.smartRemain);
-    for (let i = 0; i < maxUnits; i++) {
-      const basicNum = subj.basicStart + i;
-      const smartNum = subj.smartStart + i;
-      phase1Tasks.push({
-        subject: subj,
-        basicNum: i < subj.basicRemain ? basicNum : null,
-        smartNum: i < subj.smartRemain ? smartNum : null,
-      });
-    }
-  });
-
-  // Distribute 3 units per day
-  const UNITS_PER_DAY = 3;
-  for (let i = 0; i < phase1Tasks.length; i++) {
-    const dayIdx = Math.floor(i / UNITS_PER_DAY);
-    const dateStr = addDate(dayIdx);
-    const t = phase1Tasks[i];
-
-    if (t.basicNum !== null) {
-      addTask(dateStr, {
-        type: 'new',
-        text: `${t.subject.short} 基本講座${t.basicNum}`,
-        time: 45,
-        css: 'plan-task-new',
-        icon: '📖',
-      });
-      addReviews(dateStr, t.subject.short, t.basicNum, '基本');
-    }
-    if (t.smartNum !== null) {
-      addTask(dateStr, {
-        type: 'smart',
-        text: `${t.subject.short} スマート問題集${t.smartNum}`,
-        time: 12,
-        css: 'plan-task-new',
-        icon: '✏️',
-      });
-    }
-  }
-
-  const phase1Days = Math.ceil(phase1Tasks.length / UNITS_PER_DAY);
-  const phase1EndDate = addDate(phase1Days - 1);
-
-  // ==============================
-  // PHASE 2: Output (セレクト過去問 + 選択式ポイント)
-  // ==============================
-  const phase2Start = phase1Days;
-  const phase2Tasks = [];
-
-  OUTPUT_ORDER.forEach(subj => {
-    for (let i = 0; i < subj.pastRemain; i++) {
-      phase2Tasks.push({ type:'past', text:`${subj.short} セレクト過去問${i+1}`, time:20, css:'plan-task-output', icon:'📝' });
-    }
-    for (let i = 0; i < subj.selectRemain; i++) {
-      phase2Tasks.push({ type:'select', text:`${subj.short} 選択式ポイント${i+1}`, time:15, css:'plan-task-output', icon:'🎯' });
-    }
-  });
-
-  // 5 units per day for output phase
-  const OUTPUT_PER_DAY = 5;
-  for (let i = 0; i < phase2Tasks.length; i++) {
-    const dayIdx = phase2Start + Math.floor(i / OUTPUT_PER_DAY);
-    const dateStr = addDate(dayIdx);
-    addTask(dateStr, phase2Tasks[i]);
-
-    // Add reviews for output phase too
-    const baseDate = new Date(dateStr);
-    [3, 7, 14].forEach((interval, idx) => {
-      const rd = new Date(baseDate);
+      const rd = new Date(base);
       rd.setDate(rd.getDate() + interval);
-      const rds = rd.toISOString().slice(0,10);
       if (rd < EXAM_DATE) {
-        addTask(rds, {
-          type:'review', text:`[復習] ${phase2Tasks[i].text}`, time:8,
-          css:'plan-task-review', reviewLevel: idx+1,
+        addTask(rd.toISOString().slice(0,10), {
+          type:'review',
+          text:`[復習${REVIEW_LABELS[i]}] ${text}`,
+          time: i < 2 ? 8 : 5,
+          css:'plan-task-review',
+          reviewLevel: i,
+          icon:'🔄',
         });
       }
     });
   }
 
-  const phase2Days = Math.ceil(phase2Tasks.length / OUTPUT_PER_DAY);
-  const phase2EndDay = phase2Start + phase2Days - 1;
-
   // ==============================
-  // PHASE 3: Final (総まとめ)
+  // PHASE 1: 基本講座 + スマート問題集
   // ==============================
-  const phase3Start = phase2Start + phase2Days;
-  let phase3Day = 0;
-
-  SUMMARY_ORDER.forEach(item => {
-    for (let i = 0; i < item.total; i++) {
-      const dayIdx = phase3Start + Math.floor(phase3Day / 2); // 2 units per day
-      const dateStr = addDate(dayIdx);
-      addTask(dateStr, {
-        type:'final', text:`総まとめ ${item.name}${item.total > 1 ? (i+1) : ''}`,
-        time:40, css:'plan-task-final', icon:'🏆',
-      });
-      phase3Day++;
+  const phase1Queue = [];
+  SUBJECT_ORDER.forEach(subj => {
+    const basics = COURSE_DATA.kihon[subj.id] || [];
+    const smarts = COURSE_DATA.smart[subj.id] || [];
+    const bDone = PROGRESS_INIT.kihon[subj.id] || 0;
+    const sDone = PROGRESS_INIT.smart[subj.id] || 0;
+    const maxN = Math.max(basics.length, smarts.length);
+    for (let i = 0; i < maxN; i++) {
+      const basic = (i >= bDone && i < basics.length) ? basics[i] : null;
+      const smart = (i >= sDone && i < smarts.length) ? smarts[i] : null;
+      if (basic || smart) phase1Queue.push({ subj, basic, smart });
     }
   });
 
-  // Add final review days (last 2 weeks)
-  const examDateStr = EXAM_DATE.toISOString().slice(0,10);
-  for (let d = 14; d >= 1; d--) {
-    const reviewDate = new Date(EXAM_DATE);
-    reviewDate.setDate(reviewDate.getDate() - d);
-    const rds = reviewDate.toISOString().slice(0,10);
-    if (!schedule[rds]) schedule[rds] = [];
-
-    // Add comprehensive review tasks
-    const subjIdx = (14 - d) % SUBJECTS.length;
-    addTask(rds, {
-      type:'final', text:`総復習: ${SUBJECTS[subjIdx].name}`,
-      time:60, css:'plan-task-final', icon:'🔄',
-    });
-    addTask(rds, {
-      type:'final', text:`弱点科目の問題演習`,
-      time:40, css:'plan-task-final', icon:'💪',
-    });
+  let day = 0;
+  let dayMin = 0;
+  while (phase1Queue.length > 0) {
+    const item = phase1Queue[0];
+    const itemMin = (item.basic ? item.basic[1] : 0) + (item.smart ? item.smart[1] : 0);
+    if (dayMin > 0 && dayMin + itemMin > TARGET_NEW) {
+      day++;
+      dayMin = 0;
+      continue;
+    }
+    phase1Queue.shift();
+    const dateStr = addDate(day);
+    if (item.basic) {
+      const label = `${item.subj.short} 基本講座${item.basic[0]}`;
+      addTask(dateStr, { type:'new', text:label, time:item.basic[1], css:'plan-task-new', icon:'📖' });
+      addReviews(dateStr, label);
+    }
+    if (item.smart) {
+      addTask(dateStr, { type:'smart', text:`${item.subj.short} スマート問題集${item.smart[0]}`, time:item.smart[1], css:'plan-task-new', icon:'✏️' });
+    }
+    dayMin += itemMin;
   }
+  const phase1EndDay = day;
+  day++;
 
-  // Store phase dates
+  // ==============================
+  // PHASE 2: セレクト過去問 + 選択式ポイント
+  // ==============================
+  const phase2Queue = [];
+  SUBJECT_ORDER.forEach(subj => {
+    (COURSE_DATA.past[subj.id] || []).forEach(p => {
+      phase2Queue.push({ subj, num:p[0], time:p[1], type:'past', text:`${subj.short} セレクト過去問${p[0]}`, icon:'📝' });
+    });
+    (COURSE_DATA.select[subj.id] || []).forEach(p => {
+      phase2Queue.push({ subj, num:p[0], time:p[1], type:'select', text:`${subj.short} 選択式ポイント${p[0]}`, icon:'🎯' });
+    });
+  });
+
+  const phase2StartDay = day;
+  dayMin = 0;
+  while (phase2Queue.length > 0) {
+    const item = phase2Queue[0];
+    if (dayMin > 0 && dayMin + item.time > TARGET_NEW) {
+      day++; dayMin = 0; continue;
+    }
+    phase2Queue.shift();
+    const dateStr = addDate(day);
+    addTask(dateStr, { type:item.type, text:item.text, time:item.time, css:'plan-task-output', icon:item.icon });
+    // Reviews (3日後, 7日後, 14日後)
+    [3,7,14].forEach((interval, idx) => {
+      const rd = new Date(dateStr);
+      rd.setDate(rd.getDate() + interval);
+      if (rd < EXAM_DATE) {
+        addTask(rd.toISOString().slice(0,10), {
+          type:'review', text:`[復習] ${item.text}`, time:5,
+          css:'plan-task-review', reviewLevel:idx+1, icon:'🔄',
+        });
+      }
+    });
+    dayMin += item.time;
+  }
+  const phase2EndDay = day;
+  day++;
+
+  // ==============================
+  // PHASE 3: 総まとめ + 横断整理 + 今日のまとめのまとめ
+  // ==============================
+  const phase3Queue = [];
+  COURSE_DATA.summary.forEach(([name, time]) => phase3Queue.push({ text:`総まとめ ${name}`, time, icon:'🏆' }));
+  COURSE_DATA.oudan.forEach(([name, time]) => phase3Queue.push({ text:`総まとめ ${name}`, time, icon:'🔗' }));
+  COURSE_DATA.matome.forEach(([name, time]) => phase3Queue.push({ text:name, time, icon:'📹' }));
+
+  const phase3StartDay = day;
+  dayMin = 0;
+  while (phase3Queue.length > 0) {
+    const item = phase3Queue[0];
+    if (dayMin > 0 && dayMin + item.time > TARGET_NEW) {
+      day++; dayMin = 0; continue;
+    }
+    phase3Queue.shift();
+    const dateStr = addDate(day);
+    addTask(dateStr, { type:'final', text:item.text, time:item.time, css:'plan-task-final', icon:item.icon });
+    dayMin += item.time;
+  }
+  const phase3EndDay = day;
+
+  // Phase metadata
   const phases = {
-    phase1: { start: addDate(0), end: phase1EndDate, label: 'Phase 1: インプット期' },
-    phase2: { start: addDate(phase2Start), end: addDate(phase2EndDay), label: 'Phase 2: アウトプット期' },
-    phase3: { start: addDate(phase3Start), end: addDate(phase3Start + Math.ceil(phase3Day/2) - 1), label: 'Phase 3: 直前対策期' },
+    phase1: { start: addDate(0), end: addDate(phase1EndDay), label:'Phase 1: インプット期（基本講座＋スマート問題集）' },
+    phase2: { start: addDate(phase2StartDay), end: addDate(phase2EndDay), label:'Phase 2: アウトプット期（過去問＋選択式）' },
+    phase3: { start: addDate(phase3StartDay), end: addDate(phase3EndDay), label:'Phase 3: 直前対策期（総まとめ＋横断＋復習動画）' },
   };
 
   const result = { schedule, phases };
-  setData('study_schedule_v3', result);
+  setData('study_schedule_v5', result);
   return result;
 }
 
