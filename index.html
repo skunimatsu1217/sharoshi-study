@@ -265,6 +265,7 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
+  <button class="tab-btn" data-tab="create">作成</button>
   <button class="tab-btn" data-tab="progress">進捗</button>
   <button class="tab-btn" data-tab="review">復習</button>
   <button class="tab-btn" data-tab="flashcard">単語帳</button>
@@ -316,6 +317,76 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
     <div id="fc-list" style="display:none; margin-top:12px">
       <div class="card" id="fc-list-inner"></div>
+    </div>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 作成（勉強内容作成）  -->
+  <!-- ==================== -->
+  <div id="create" class="tab-content">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">勉強内容を作成</div>
+      <p style="font-size:12px;color:var(--text-light);margin-bottom:12px">
+        カテゴリ・科目・単元を指定して、今日または明日のタスクに追加できます
+      </p>
+
+      <div class="form-group">
+        <label>カテゴリ</label>
+        <select class="subject-select" id="create-category" style="margin-bottom:0" onchange="updateCreatePreview()">
+          <option value="basic_video">📹 基本動画</option>
+          <option value="basic_text">📖 テキスト</option>
+          <option value="smart">✏️ スマート問題集</option>
+          <option value="past">📝 セレクト過去問</option>
+          <option value="select">🎯 選択式ポイント問題集</option>
+          <option value="summary">🏆 総まとめ講座</option>
+          <option value="oudan">🔗 横断整理</option>
+          <option value="matome">📹 今日のまとめのまとめ</option>
+          <option value="free">✍️ 自由入力</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="create-subject-group">
+        <label>科目</label>
+        <select class="subject-select" id="create-subject" style="margin-bottom:0" onchange="updateCreatePreview()"></select>
+      </div>
+
+      <div class="form-group" id="create-range-group">
+        <label>単元番号</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="create-from" placeholder="開始" min="1" style="flex:1" oninput="updateCreatePreview()">
+          <span style="color:var(--text-light)">〜</span>
+          <input type="number" id="create-to" placeholder="終了" min="1" style="flex:1" oninput="updateCreatePreview()">
+        </div>
+        <p style="font-size:11px;color:var(--text-light);margin-top:4px">※ 1単元のみの場合は開始のみでOK</p>
+      </div>
+
+      <div class="form-group" id="create-free-group" style="display:none">
+        <label>内容</label>
+        <input type="text" id="create-free-text" placeholder="自由入力">
+      </div>
+
+      <!-- プレビュー -->
+      <div style="margin:16px 0;padding:12px;background:#f8f9fa;border-radius:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px">プレビュー</div>
+        <div id="create-preview" style="font-size:13px;color:var(--text-light)">カテゴリと項目を選択してください</div>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-block" onclick="addCreatedToToday()">今日に追加</button>
+        <button class="btn btn-outline btn-block" onclick="addCreatedToTomorrow()">明日に追加</button>
+      </div>
+    </div>
+
+    <!-- クイック追加（よく使う） -->
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">⚡ クイック追加</div>
+      <p style="font-size:11px;color:var(--text-light);margin-bottom:10px">よく使うセットを1タップで追加</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="quickAdd('daily_target')">📋 130日目標の1日分（4カテゴリ）</button>
+        <button class="btn btn-outline btn-sm" onclick="quickAdd('kenpohou_continue')">🏥 健保 基本講座の続き（1〜3本）</button>
+        <button class="btn btn-outline btn-sm" onclick="quickAdd('kokunenhou_continue')">📋 国年 基本講座の続き（1〜3本）</button>
+        <button class="btn btn-outline btn-sm" onclick="quickAdd('review_session')">🔄 今日の復習タスク一括追加</button>
+      </div>
     </div>
   </div>
 
@@ -700,6 +771,185 @@ function changeProgress(catKey, idx, delta) {
   loadProgress();
 }
 
+// ==== CREATE (勉強内容作成) ====
+const CREATE_CAT_INFO = {
+  basic_video: { icon:'📹', label:'基本動画', unit:'講座', hasSubject:true, hasRange:true },
+  basic_text:  { icon:'📖', label:'テキスト', unit:'章',   hasSubject:true, hasRange:true },
+  smart:       { icon:'✏️', label:'スマート問題集', unit:'', hasSubject:true, hasRange:true },
+  past:        { icon:'📝', label:'セレクト過去問', unit:'', hasSubject:true, hasRange:true },
+  select:      { icon:'🎯', label:'選択式ポイント', unit:'', hasSubject:true, hasRange:true },
+  summary:     { icon:'🏆', label:'総まとめ', unit:'', hasSubject:false, hasRange:true },
+  oudan:       { icon:'🔗', label:'横断整理', unit:'', hasSubject:false, hasRange:true },
+  matome:      { icon:'📹', label:'今日のまとめのまとめ', unit:'', hasSubject:true, hasRange:false },
+  free:        { icon:'✍️', label:'', unit:'', hasSubject:false, hasRange:false },
+};
+
+function buildCreateLabel() {
+  const cat = document.getElementById('create-category').value;
+  const info = CREATE_CAT_INFO[cat];
+  if (!info) return '';
+
+  if (cat === 'free') {
+    return document.getElementById('create-free-text').value.trim();
+  }
+
+  const subjId = document.getElementById('create-subject').value;
+  const subj = SUBJECTS.find(s => s.id === subjId);
+  const subjShort = subj ? subj.short : '';
+
+  const from = document.getElementById('create-from').value;
+  const to = document.getElementById('create-to').value;
+
+  let range = '';
+  if (info.hasRange) {
+    if (from && to && from !== to) range = `${from}〜${to}`;
+    else if (from) range = from;
+  }
+
+  const parts = [info.icon];
+  if (info.hasSubject && subjShort) parts.push(subjShort);
+  parts.push(info.label);
+  if (range) parts.push(range);
+
+  return parts.join(' ');
+}
+
+function updateCreatePreview() {
+  const cat = document.getElementById('create-category').value;
+  const info = CREATE_CAT_INFO[cat];
+
+  // Show/hide fields
+  document.getElementById('create-subject-group').style.display = info.hasSubject ? 'block' : 'none';
+  document.getElementById('create-range-group').style.display = info.hasRange ? 'block' : 'none';
+  document.getElementById('create-free-group').style.display = (cat === 'free') ? 'block' : 'none';
+
+  const label = buildCreateLabel();
+  const preview = document.getElementById('create-preview');
+
+  if (cat === 'free' && !label) {
+    preview.textContent = '内容を入力してください';
+    preview.style.color = 'var(--text-light)';
+    return;
+  }
+  if (!label || (info.hasSubject && !document.getElementById('create-subject').value)) {
+    preview.textContent = 'カテゴリと項目を選択してください';
+    preview.style.color = 'var(--text-light)';
+    return;
+  }
+
+  preview.textContent = label;
+  preview.style.color = 'var(--text)';
+}
+
+function addCreatedToDate(dateStr, toastMsg) {
+  const cat = document.getElementById('create-category').value;
+  const info = CREATE_CAT_INFO[cat];
+  const label = buildCreateLabel();
+
+  if (!label) { showToast('内容を入力してください'); return; }
+  if (info.hasSubject && !document.getElementById('create-subject').value) {
+    showToast('科目を選択してください');
+    return;
+  }
+
+  // If range specified with multiple units, generate multiple tasks
+  const from = parseInt(document.getElementById('create-from').value);
+  const to = parseInt(document.getElementById('create-to').value);
+  const subjId = document.getElementById('create-subject').value;
+  const tasks = getData('today_' + dateStr, []);
+
+  if (info.hasRange && from && to && to > from && cat !== 'free') {
+    // Create one task per unit in range
+    for (let n = from; n <= to; n++) {
+      const subj = SUBJECTS.find(s => s.id === subjId);
+      const subjShort = subj ? subj.short : '';
+      const parts = [info.icon];
+      if (info.hasSubject && subjShort) parts.push(subjShort);
+      parts.push(info.label);
+      parts.push(n);
+      tasks.push({
+        text: parts.join(' '),
+        subject: subjId || '',
+        done: false,
+        id: Date.now() + Math.random(),
+      });
+    }
+  } else {
+    tasks.push({
+      text: label,
+      subject: subjId || '',
+      done: false,
+      id: Date.now() + Math.random(),
+    });
+  }
+
+  setData('today_' + dateStr, tasks);
+  showToast(toastMsg);
+
+  // Reset form
+  document.getElementById('create-from').value = '';
+  document.getElementById('create-to').value = '';
+  document.getElementById('create-free-text').value = '';
+  updateCreatePreview();
+
+  loadToday();
+}
+
+function addCreatedToToday() { addCreatedToDate(todayStr(), '今日に追加しました'); }
+function addCreatedToTomorrow() { addCreatedToDate(addDays(todayStr(), 1), '明日に追加しました'); }
+
+function quickAdd(type) {
+  const ts = todayStr();
+  const tasks = getData('today_' + ts, []);
+  let msg = '';
+
+  if (type === 'daily_target') {
+    const { items } = calcDailyQuota();
+    items.forEach(it => {
+      const label = `${it.icon} ${it.label}（目安: 約${it.perDayUnits}単位・${it.perDayMin}分）`;
+      if (!tasks.find(t => t.text === label)) {
+        tasks.push({ text:label, subject:'', done:false, id:Date.now()+Math.random() });
+      }
+    });
+    msg = '130日目標の1日分を追加しました';
+  } else if (type === 'kenpohou_continue') {
+    const prog = getData('progress_data', DEFAULT_PROGRESS);
+    const done = prog.kihon.items.find(it => it.id === 'kenpohou')?.done || 0;
+    for (let i = 1; i <= 3; i++) {
+      tasks.push({ text:`📹 健保 基本講座 ${done + i}`, subject:'kenpohou', done:false, id:Date.now()+Math.random()+i });
+    }
+    msg = '健保 基本講座3本を追加';
+  } else if (type === 'kokunenhou_continue') {
+    const prog = getData('progress_data', DEFAULT_PROGRESS);
+    const done = prog.kihon.items.find(it => it.id === 'kokunenhou')?.done || 0;
+    for (let i = 1; i <= 3; i++) {
+      tasks.push({ text:`📹 国年 基本講座 ${done + i}`, subject:'kokunenhou', done:false, id:Date.now()+Math.random()+i });
+    }
+    msg = '国年 基本講座3本を追加';
+  } else if (type === 'review_session') {
+    const items = getData('review_items', []);
+    const today = todayStr();
+    let count = 0;
+    items.forEach(item => {
+      const reviews = getReviewInfo(item);
+      reviews.forEach(r => {
+        if (r.status === 'due' || r.status === 'overdue') {
+          const label = `🔄 ${item.text} [${r.label}]`;
+          if (!tasks.find(t => t.text === label)) {
+            tasks.push({ text:label, subject:item.subject, done:false, id:Date.now()+Math.random()+count });
+            count++;
+          }
+        }
+      });
+    });
+    msg = count > 0 ? `復習${count}件を追加` : '今日の復習はありません';
+  }
+
+  setData('today_' + ts, tasks);
+  loadToday();
+  showToast(msg);
+}
+
 // ==== GOALS (130-day target) ====
 function calcDailyQuota() {
   // Returns {remainingDays, items: [{key, label, perDayUnits, perDayMinutes, totalRemaining}]}
@@ -1060,8 +1310,9 @@ function init() {
   const diff = Math.ceil((EXAM_DATE - today) / (1000 * 60 * 60 * 24));
   document.getElementById('countdown-days').textContent = diff;
 
-  // Populate subject selects
+  // Populate subject selects (except category selectors that have predefined options)
   document.querySelectorAll('.subject-select').forEach(sel => {
+    if (sel.id === 'create-category') return;
     SUBJECTS.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
@@ -1069,6 +1320,9 @@ function init() {
       sel.appendChild(opt);
     });
   });
+
+  // Initialize create tab preview
+  updateCreatePreview();
 
   // Default date for review
   document.getElementById('review-add-date').value = todayStr();
