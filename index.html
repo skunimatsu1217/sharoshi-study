@@ -185,6 +185,8 @@ textarea { resize: vertical; min-height: 60px; }
 .task-item.done .task-text { text-decoration: line-through; }
 .task-item.bonus { border: 2px dashed #f59e0b; background: #fffbeb; }
 .task-item.bonus .task-text::before { content: "✨ できたら "; color: #f59e0b; font-weight: 700; font-size: 11px; }
+.task-item.carryover { border-left: 4px solid #dc2626; }
+.task-item.carryover .task-text::before { content: "⏮ 繰越 "; color: #dc2626; font-weight: 700; font-size: 11px; }
 .task-check {
   width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border);
   cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
@@ -362,10 +364,9 @@ textarea { resize: vertical; min-height: 60px; }
     <div id="today-list"></div>
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('today-add-modal')">＋ 勉強内容を追加</button>
-    <button class="btn btn-outline btn-block" style="margin-top:8px" onclick="carryOverToTomorrow()">⏭ 未完了を明日へ繰り越し</button>
     <p style="font-size:11px;color:var(--text-light);margin-top:10px;text-align:center;line-height:1.6">
       ✓チェックすると自動的に復習リストに登録されます<br>
-      学習日＝チェックした日になります
+      未完了分は翌日「＋今日の目標タスクを追加」時に自動で引き継がれます
     </p>
   </div>
 
@@ -822,9 +823,50 @@ function setDayMode(mode) {
 // the lectures AFTER base.
 function addGoalTasksToToday() {
   const ts = todayStr();
+  const yesterday = addDays(ts, -1);
   const { base, bonus, isWeekend } = getDayBudget(ts);
 
-  // Compute each category's total minutes (for ratio allocation)
+  // --- Step 1: Carry over undone tasks from yesterday ---
+  const todayTasks = getData('today_' + ts, []);
+  const yTasks = getData('today_' + yesterday, []);
+  const yUndone = yTasks.filter(t => !t.done);
+  const yDone = yTasks.filter(t => t.done);
+  let carriedCount = 0;
+
+  yUndone.forEach(t => {
+    // Skip duplicates already in today
+    if (todayTasks.find(x => x.text === t.text)) return;
+    todayTasks.push({
+      ...t,
+      id: Date.now() + Math.random() + carriedCount,
+      done: false,
+      reviewIds: undefined,
+      reviewId: undefined,
+      carryover: true,
+      // Carried-over bonus tasks become base (must-do) since they were skipped yesterday
+      bonus: false,
+    });
+    carriedCount++;
+  });
+  if (carriedCount > 0) setData('today_' + yesterday, yDone);
+
+  // --- Step 2: Compute remaining budget after carryover ---
+  let usedBase = 0, usedBonus = 0;
+  const alreadyPicked = {}; // { goalKey: { subjId: maxLectureIdx } }
+  todayTasks.forEach(t => {
+    const m = parseInt((t.text.match(/\((\d+)分\)/) || [])[1] || 0);
+    if (t.bonus) usedBonus += m;
+    else usedBase += m;
+    if (t.goalKey && t.subjId && typeof t.lectureIdx === 'number') {
+      alreadyPicked[t.goalKey] = alreadyPicked[t.goalKey] || {};
+      const cur = alreadyPicked[t.goalKey][t.subjId] ?? -1;
+      if (t.lectureIdx > cur) alreadyPicked[t.goalKey][t.subjId] = t.lectureIdx;
+    }
+  });
+  const remBase = Math.max(0, base - usedBase);
+  const remBonus = Math.max(0, bonus - usedBonus);
+
+  // --- Step 3: Compute category ratios ---
   const catTotalMin = {};
   let grandTotal = 0;
   GOALS.forEach(g => {
@@ -833,29 +875,34 @@ function addGoalTasksToToday() {
     grandTotal += tm;
   });
 
-  // Virtual done counter per goal+subject, initialized from progress_data_v2
+  // --- Step 4: Virtual done counter (progress + already-picked-in-today) ---
   const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
   const virtualDone = {};
   GOALS.forEach(g => {
     virtualDone[g.key] = {};
     const progItems = g.progKey && progress[g.progKey] ? progress[g.progKey].items : [];
     progItems.forEach(it => { virtualDone[g.key][it.id] = it.done || 0; });
+    const picked = alreadyPicked[g.key] || {};
+    Object.entries(picked).forEach(([sid, maxIdx]) => {
+      if (maxIdx + 1 > (virtualDone[g.key][sid] || 0)) {
+        virtualDone[g.key][sid] = maxIdx + 1;
+      }
+    });
   });
 
+  // --- Step 5: Pick new lectures to fill remaining budget ---
   const pickedTasks = [];
-
   function pickForBudget(totalBudget, isBonus) {
+    if (totalBudget <= 0) return;
     GOALS.forEach(g => {
       if (!g.dataKey) return;
       const allot = totalBudget * (catTotalMin[g.key] / grandTotal);
       let accumulated = 0;
-
       const data = COURSE_DATA[g.dataKey];
       for (const subj of SUBJECTS) {
         if (accumulated >= allot) break;
         const lectures = data[subj.id];
         if (!lectures || lectures.length === 0) continue;
-
         let done = virtualDone[g.key][subj.id] || 0;
         while (accumulated < allot && done < lectures.length) {
           const [num, title, mins] = lectures[done];
@@ -864,6 +911,8 @@ function addGoalTasksToToday() {
             subjId: subj.id,
             mins,
             bonus: isBonus,
+            goalKey: g.key,
+            lectureIdx: done,
           });
           accumulated += mins;
           done++;
@@ -872,28 +921,31 @@ function addGoalTasksToToday() {
       }
     });
   }
+  pickForBudget(remBase, false);
+  pickForBudget(remBonus, true);
 
-  pickForBudget(base, false);
-  pickForBudget(bonus, true);
-
-  // Append to today
-  const tasks = getData('today_' + ts, []);
+  // --- Step 6: Append to today ---
   let baseAdded = 0, bonusAdded = 0;
   pickedTasks.forEach((lec, i) => {
-    if (tasks.find(t => t.text === lec.text)) return;
-    tasks.push({
+    if (todayTasks.find(t => t.text === lec.text)) return;
+    todayTasks.push({
       text: lec.text,
       subject: lec.subjId || '',
       done: false,
       bonus: lec.bonus,
-      id: Date.now() + Math.random() + i,
+      goalKey: lec.goalKey,
+      subjId: lec.subjId,
+      lectureIdx: lec.lectureIdx,
+      mins: lec.mins,
+      id: Date.now() + Math.random() + i + 10000,
     });
     if (lec.bonus) bonusAdded++; else baseAdded++;
   });
 
-  setData('today_' + ts, tasks);
+  setData('today_' + ts, todayTasks);
   loadToday();
-  showToast(`${isWeekend ? '休日' : '平日'}: 基本${baseAdded}件 + できたら${bonusAdded}件を追加`);
+  const carryMsg = carriedCount > 0 ? `繰越${carriedCount}件 + ` : '';
+  showToast(`${carryMsg}基本${baseAdded}件 + できたら${bonusAdded}件を追加`);
 }
 
 // ==== TODAY ====
@@ -910,7 +962,7 @@ function loadToday() {
     area.innerHTML = tasks.map((t, i) => {
       const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
       const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
-      return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''}">
+      return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''}">
         <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>
         <div class="task-text">
           ${esc(t.text)} ${linked}
