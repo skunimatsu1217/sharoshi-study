@@ -968,8 +968,8 @@ function calcDailyQuota() {
       ...g,
       totalUnits,
       totalMin,
-      perDayUnits: Math.round(perDayUnits * 10) / 10,
-      perDayMin: Math.round(perDayMin),
+      perDayUnits: Math.ceil(perDayUnits),
+      perDayMin: Math.ceil(perDayMin),
     };
   });
 
