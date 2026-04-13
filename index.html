@@ -775,14 +775,16 @@ function loadGoals() {
 }
 
 // 平日/休日判定
+// 平日: 基本180分 + できたら120分 (最大300分)
+// 休日: 基本480分 + できたら240分 (最大720分)
 function getDayBudget(dateStr) {
   const d = new Date(dateStr);
   const day = d.getDay();
   const isWeekend = (day === 0 || day === 6);
   return {
     isWeekend,
-    base: isWeekend ? 360 : 180,
-    bonus: 120,
+    base: isWeekend ? 480 : 180,
+    bonus: isWeekend ? 240 : 120,
   };
 }
 
