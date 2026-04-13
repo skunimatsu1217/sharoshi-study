@@ -520,10 +520,11 @@ const REVIEW_LABELS = ['1日後','3日後','7日後','14日後','30日後'];
 const GOAL_START = '2026-04-13';
 const GOAL_DAYS = 130;
 const GOALS = [
-  { key:'video', icon:'📹', label:'基本動画', rounds:2, totalUnits:174, minPerUnit:42 },
-  { key:'text',  icon:'📖', label:'テキスト', rounds:10, totalUnits:10, minPerUnit:30 },
-  { key:'past',  icon:'📝', label:'過去問',   rounds:10, totalUnits:45, minPerUnit:13 },
-  { key:'applied', icon:'🎯', label:'応用講座', rounds:5, totalUnits:45, minPerUnit:14 },
+  { key:'video',   icon:'📹', label:'基本動画',     rounds:2,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
+  { key:'text',    icon:'📖', label:'テキスト',     rounds:10, totalUnits:174, minPerUnit:10, dataKey:'kihon',  progKey:null     },
+  { key:'smart',   icon:'✏️', label:'スマート問題集', rounds:5, totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
+  { key:'past',    icon:'📝', label:'過去問',       rounds:10, totalUnits:45,  minPerUnit:13, dataKey:'past',   progKey:'past'   },
+  { key:'applied', icon:'🎯', label:'応用講座',     rounds:5,  totalUnits:44,  minPerUnit:14, dataKey:'select', progKey:'select' },
 ];
 
 const SUBJECTS = [
@@ -938,28 +939,26 @@ function quickAdd(type) {
   let msg = '';
 
   if (type === 'daily_target') {
-    const { items } = calcDailyQuota();
-    items.forEach(it => {
-      const label = `${it.icon} ${it.label}（目安: 約${it.perDayUnits}単位・${it.perDayMin}分）`;
-      if (!tasks.find(t => t.text === label)) {
-        tasks.push({ text:label, subject:'', done:false, id:Date.now()+Math.random() });
-      }
-    });
-    msg = '130日目標の1日分を追加しました';
-  } else if (type === 'kenpohou_continue') {
+    addGoalTasksToToday();
+    return;
+  } else if (type === 'kenpohou_continue' || type === 'kokunenhou_continue') {
+    const subjId = type === 'kenpohou_continue' ? 'kenpohou' : 'kokunenhou';
+    const subjShort = type === 'kenpohou_continue' ? '健保' : '国年';
     const prog = getData('progress_data_v2', DEFAULT_PROGRESS);
-    const done = prog.kihon.items.find(it => it.id === 'kenpohou')?.done || 0;
-    for (let i = 1; i <= 3; i++) {
-      tasks.push({ text:`📹 健保 基本講座 ${done + i}`, subject:'kenpohou', done:false, id:Date.now()+Math.random()+i });
+    const done = prog.kihon.items.find(it => it.id === subjId)?.done || 0;
+    const lectures = COURSE_DATA.kihon[subjId] || [];
+    let added = 0;
+    for (let i = done; i < lectures.length && added < 3; i++) {
+      const [num, title, mins] = lectures[i];
+      tasks.push({
+        text: `📹 ${subjShort} 基本講座${num}${title ? ' - ' + title : ''} (${mins}分)`,
+        subject: subjId,
+        done: false,
+        id: Date.now() + Math.random() + i,
+      });
+      added++;
     }
-    msg = '健保 基本講座3本を追加';
-  } else if (type === 'kokunenhou_continue') {
-    const prog = getData('progress_data_v2', DEFAULT_PROGRESS);
-    const done = prog.kihon.items.find(it => it.id === 'kokunenhou')?.done || 0;
-    for (let i = 1; i <= 3; i++) {
-      tasks.push({ text:`📹 国年 基本講座 ${done + i}`, subject:'kokunenhou', done:false, id:Date.now()+Math.random()+i });
-    }
-    msg = '国年 基本講座3本を追加';
+    msg = `${subjShort} 基本講座${added}本を追加`;
   } else if (type === 'review_session') {
     const items = getData('review_items', []);
     const today = todayStr();
@@ -1025,22 +1024,75 @@ function loadGoals() {
   document.getElementById('goals-list').innerHTML = html;
 }
 
+// Pick next N uncompleted lectures for a goal category, using SUBJECTS priority order
+function pickNextLecturesForGoal(goal, count) {
+  const picked = [];
+  if (!goal.dataKey) {
+    // Text or other non-specific: return single aggregate task
+    return [{ text: `${goal.icon} ${goal.label} (目安: 約${count}単位・${count * goal.minPerUnit}分)`, mins: count * goal.minPerUnit, subjId: '' }];
+  }
+
+  const data = COURSE_DATA[goal.dataKey];
+  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
+  const progItems = goal.progKey && progress[goal.progKey] ? progress[goal.progKey].items : [];
+
+  // Track how many we've added per subject via progress counts (temporary virtual counter)
+  const virtualDone = {};
+  progItems.forEach(it => { virtualDone[it.id] = it.done; });
+
+  // Iterate through SUBJECTS in priority order
+  for (const subj of SUBJECTS) {
+    if (picked.length >= count) break;
+    const lectures = data[subj.id];
+    if (!lectures) continue;
+
+    const done = virtualDone[subj.id] || 0;
+    // Next lectures after 'done'
+    for (let i = done; i < lectures.length && picked.length < count; i++) {
+      const [num, title, mins] = lectures[i];
+      picked.push({
+        text: `${goal.icon} ${subj.short} ${goal.label}${num}${title ? ' - ' + title : ''}`,
+        mins,
+        subjId: subj.id,
+      });
+      virtualDone[subj.id] = i + 1;
+    }
+  }
+
+  return picked;
+}
+
 function addGoalTasksToToday() {
   const { items } = calcDailyQuota();
   const ts = todayStr();
   const tasks = getData('today_' + ts, []);
+  let addedCount = 0;
 
-  items.forEach(it => {
-    // Skip if already added today
-    const label = `${it.icon} ${it.label}（目安: 約${it.perDayUnits}単位・${it.perDayMin}分）`;
-    if (!tasks.find(t => t.text === label)) {
-      tasks.push({ text: label, subject: '', done: false, id: Date.now() + Math.random() });
-    }
+  items.forEach(goalItem => {
+    const goal = GOALS.find(g => g.key === goalItem.key);
+    if (!goal) return;
+
+    const count = goalItem.perDayUnits;
+    const lectures = pickNextLecturesForGoal(goal, count);
+
+    lectures.forEach(lec => {
+      const taskText = lec.mins ? `${lec.text} (${lec.mins}分)` : lec.text;
+      // Skip duplicates
+      if (!tasks.find(t => t.text === taskText)) {
+        tasks.push({
+          text: taskText,
+          subject: lec.subjId || '',
+          done: false,
+          id: Date.now() + Math.random() + addedCount,
+        });
+        addedCount++;
+      }
+    });
   });
 
   setData('today_' + ts, tasks);
   loadToday();
-  showToast('目標タスクを追加しました');
+  showToast(`${addedCount}件のタスクを追加しました`);
 }
 
 // ==== TODAY ====
