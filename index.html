@@ -879,7 +879,7 @@ function loadToday() {
   } else {
     area.innerHTML = tasks.map((t, i) => {
       const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
-      const linked = t.reviewId ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
+      const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
       return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''}">
         <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>
         <div class="task-text">
@@ -912,6 +912,14 @@ function addTodayTask() {
   showToast('追加しました');
 }
 
+// Strip leading emoji icon and trailing "(XX分)" from a task text
+function stripTaskLabel(text) {
+  return text
+    .replace(/^(?:[\u2600-\u27BF\uD83C-\uDBFF\uDC00-\uDFFF]|\p{Extended_Pictographic})+\s*/u, '')
+    .replace(/\s*\(\d+分\)\s*$/, '')
+    .trim();
+}
+
 function toggleToday(idx) {
   const ts = todayStr();
   const tasks = getData('today_' + ts, []);
@@ -920,26 +928,43 @@ function toggleToday(idx) {
   tasks[idx].done = !tasks[idx].done;
 
   if (tasks[idx].done) {
-    // Auto-register to review list (studiedDate = today)
-    const items = getData('review_items', []);
-    const reviewId = Date.now() + Math.random();
-    items.push({
-      id: reviewId,
-      text: tasks[idx].text,
-      subject: tasks[idx].subject || '',
-      studiedDate: ts,
-      completedReviews: [false, false, false, false, false],
-      autoLinked: true,
-    });
-    setData('review_items', items);
-    tasks[idx].reviewId = reviewId;
-    showToast('復習リストに登録しました');
-  } else {
-    // Remove linked review item
-    if (tasks[idx].reviewId) {
-      let items = getData('review_items', []);
-      items = items.filter(it => it.id !== tasks[idx].reviewId);
+    // Skip auto-register if this task IS already a review task (starts with 🔄)
+    const isReviewTask = /^🔄/.test(tasks[idx].text);
+    if (!isReviewTask) {
+      const items = getData('review_items', []);
+      const core = stripTaskLabel(tasks[idx].text);
+      const subj = tasks[idx].subject || '';
+
+      const textId = Date.now() + Math.random();
+      const probId = Date.now() + Math.random() + 0.0001;
+      items.push({
+        id: textId,
+        text: `📖 テキスト復習: ${core}`,
+        subject: subj,
+        studiedDate: ts,
+        completedReviews: [false, false, false, false, false],
+        autoLinked: true,
+      });
+      items.push({
+        id: probId,
+        text: `✏️ 問題復習: ${core}`,
+        subject: subj,
+        studiedDate: ts,
+        completedReviews: [false, false, false, false, false],
+        autoLinked: true,
+      });
       setData('review_items', items);
+      tasks[idx].reviewIds = [textId, probId];
+      showToast('テキスト復習＋問題復習を登録');
+    }
+  } else {
+    // Remove linked review items
+    const ids = tasks[idx].reviewIds || (tasks[idx].reviewId ? [tasks[idx].reviewId] : []);
+    if (ids.length) {
+      let items = getData('review_items', []);
+      items = items.filter(it => !ids.includes(it.id));
+      setData('review_items', items);
+      delete tasks[idx].reviewIds;
       delete tasks[idx].reviewId;
       showToast('復習登録を解除しました');
     }
