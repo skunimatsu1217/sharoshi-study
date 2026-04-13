@@ -352,7 +352,11 @@ textarea { resize: vertical; min-height: 60px; }
         <span id="goals-remaining" style="font-size:11px;color:var(--text-light)">残り---日</span>
       </div>
       <div id="goals-list" style="font-size:12px;line-height:1.7"></div>
-      <button class="btn btn-primary btn-block btn-sm" style="margin-top:10px" onclick="addGoalTasksToToday()">＋ 今日の目標タスクを追加</button>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button id="day-mode-weekday" class="btn btn-outline btn-sm" style="flex:1" onclick="setDayMode('weekday')">平日 3h</button>
+        <button id="day-mode-weekend" class="btn btn-outline btn-sm" style="flex:1" onclick="setDayMode('weekend')">休日 8h</button>
+      </div>
+      <button class="btn btn-primary btn-block btn-sm" style="margin-top:8px" onclick="addGoalTasksToToday()">＋ 今日の目標タスクを追加</button>
     </div>
 
     <div id="today-list"></div>
@@ -764,28 +768,52 @@ function loadGoals() {
   items.forEach(it => {
     html += `<div>${it.icon} <strong>${it.label}</strong> ${it.rounds}周: 1日 約${it.perDayUnits}単位・${it.perDayMin}分</div>`;
   });
-  const { base, bonus, isWeekend } = getDayBudget(todayStr());
+  const { base, bonus, isWeekend, override } = getDayBudget(todayStr());
   html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,0.1);font-weight:700">
-    今日(${isWeekend ? '休日' : '平日'}): 基本<strong>${base}分</strong> + できたら<strong>${bonus}分</strong>
+    今日(${isWeekend ? '休日' : '平日'}${override ? ' 手動' : ''}): 基本<strong>${base}分</strong> + できたら<strong>${bonus}分</strong>
   </div>
   <div style="font-size:11px;color:var(--text-light);margin-top:2px">
     平均必要量: 約${total}分/日（目標ペース）
   </div>`;
   document.getElementById('goals-list').innerHTML = html;
+
+  // Highlight active day-mode button
+  const wd = document.getElementById('day-mode-weekday');
+  const we = document.getElementById('day-mode-weekend');
+  if (wd && we) {
+    wd.classList.toggle('btn-primary', !isWeekend);
+    wd.classList.toggle('btn-outline', isWeekend);
+    we.classList.toggle('btn-primary', isWeekend);
+    we.classList.toggle('btn-outline', !isWeekend);
+  }
 }
 
-// 平日/休日判定
+// 平日/休日判定（日付ごとに手動オーバーライド可能）
 // 平日: 基本180分 + できたら120分 (最大300分)
 // 休日: 基本480分 + できたら240分 (最大720分)
 function getDayBudget(dateStr) {
-  const d = new Date(dateStr);
-  const day = d.getDay();
-  const isWeekend = (day === 0 || day === 6);
+  const override = getData('day_mode_' + dateStr, null);
+  let isWeekend;
+  if (override === 'weekend') isWeekend = true;
+  else if (override === 'weekday') isWeekend = false;
+  else {
+    const d = new Date(dateStr);
+    const day = d.getDay();
+    isWeekend = (day === 0 || day === 6);
+  }
   return {
     isWeekend,
     base: isWeekend ? 480 : 180,
     bonus: isWeekend ? 240 : 120,
+    override: override !== null,
   };
+}
+
+function setDayMode(mode) {
+  const ts = todayStr();
+  setData('day_mode_' + ts, mode);
+  loadGoals();
+  showToast(mode === 'weekend' ? '休日モードに切替' : '平日モードに切替');
 }
 
 // Budget-based task generation
