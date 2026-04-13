@@ -183,6 +183,8 @@ textarea { resize: vertical; min-height: 60px; }
 }
 .task-item.done { opacity: 0.5; }
 .task-item.done .task-text { text-decoration: line-through; }
+.task-item.bonus { border: 2px dashed #f59e0b; background: #fffbeb; }
+.task-item.bonus .task-text::before { content: "✨ できたら "; color: #f59e0b; font-weight: 700; font-size: 11px; }
 .task-check {
   width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border);
   cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
@@ -1018,81 +1020,106 @@ function loadGoals() {
   items.forEach(it => {
     html += `<div>${it.icon} <strong>${it.label}</strong> ${it.rounds}周: 1日 約${it.perDayUnits}単位・${it.perDayMin}分</div>`;
   });
+  const { base, bonus, isWeekend } = getDayBudget(todayStr());
   html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,0.1);font-weight:700">
-    合計: 約${total}分/日（目標: 180分）
+    今日(${isWeekend ? '休日' : '平日'}): 基本<strong>${base}分</strong> + できたら<strong>${bonus}分</strong>
+  </div>
+  <div style="font-size:11px;color:var(--text-light);margin-top:2px">
+    平均必要量: 約${total}分/日（目標ペース）
   </div>`;
   document.getElementById('goals-list').innerHTML = html;
 }
 
-// Pick next N uncompleted lectures for a goal category, using SUBJECTS priority order
-function pickNextLecturesForGoal(goal, count) {
-  const picked = [];
-  if (!goal.dataKey) {
-    // Text or other non-specific: return single aggregate task
-    return [{ text: `${goal.icon} ${goal.label} (目安: 約${count}単位・${count * goal.minPerUnit}分)`, mins: count * goal.minPerUnit, subjId: '' }];
-  }
-
-  const data = COURSE_DATA[goal.dataKey];
-  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
-  const progItems = goal.progKey && progress[goal.progKey] ? progress[goal.progKey].items : [];
-
-  // Track how many we've added per subject via progress counts (temporary virtual counter)
-  const virtualDone = {};
-  progItems.forEach(it => { virtualDone[it.id] = it.done; });
-
-  // Iterate through SUBJECTS in priority order
-  for (const subj of SUBJECTS) {
-    if (picked.length >= count) break;
-    const lectures = data[subj.id];
-    if (!lectures) continue;
-
-    const done = virtualDone[subj.id] || 0;
-    // Next lectures after 'done'
-    for (let i = done; i < lectures.length && picked.length < count; i++) {
-      const [num, title, mins] = lectures[i];
-      picked.push({
-        text: `${goal.icon} ${subj.short} ${goal.label}${num}${title ? ' - ' + title : ''}`,
-        mins,
-        subjId: subj.id,
-      });
-      virtualDone[subj.id] = i + 1;
-    }
-  }
-
-  return picked;
+// 平日/休日判定
+function getDayBudget(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const isWeekend = (day === 0 || day === 6);
+  return {
+    isWeekend,
+    base: isWeekend ? 360 : 180,
+    bonus: 120,
+  };
 }
 
+// Budget-based task generation
+// Allocates minutes per category by ratio of totalMin, picks next lectures
+// until budget is filled. Tracks virtualDone across base+bonus so bonus picks
+// the lectures AFTER base.
 function addGoalTasksToToday() {
-  const { items } = calcDailyQuota();
   const ts = todayStr();
-  const tasks = getData('today_' + ts, []);
-  let addedCount = 0;
+  const { base, bonus, isWeekend } = getDayBudget(ts);
 
-  items.forEach(goalItem => {
-    const goal = GOALS.find(g => g.key === goalItem.key);
-    if (!goal) return;
+  // Compute each category's total minutes (for ratio allocation)
+  const catTotalMin = {};
+  let grandTotal = 0;
+  GOALS.forEach(g => {
+    const tm = g.totalUnits * g.rounds * g.minPerUnit;
+    catTotalMin[g.key] = tm;
+    grandTotal += tm;
+  });
 
-    const count = goalItem.perDayUnits;
-    const lectures = pickNextLecturesForGoal(goal, count);
+  // Virtual done counter per goal+subject, initialized from progress_data_v2
+  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
+  const virtualDone = {};
+  GOALS.forEach(g => {
+    virtualDone[g.key] = {};
+    const progItems = g.progKey && progress[g.progKey] ? progress[g.progKey].items : [];
+    progItems.forEach(it => { virtualDone[g.key][it.id] = it.done || 0; });
+  });
 
-    lectures.forEach(lec => {
-      const taskText = lec.mins ? `${lec.text} (${lec.mins}分)` : lec.text;
-      // Skip duplicates
-      if (!tasks.find(t => t.text === taskText)) {
-        tasks.push({
-          text: taskText,
-          subject: lec.subjId || '',
-          done: false,
-          id: Date.now() + Math.random() + addedCount,
-        });
-        addedCount++;
+  const pickedTasks = [];
+
+  function pickForBudget(totalBudget, isBonus) {
+    GOALS.forEach(g => {
+      if (!g.dataKey) return;
+      const allot = totalBudget * (catTotalMin[g.key] / grandTotal);
+      let accumulated = 0;
+
+      const data = COURSE_DATA[g.dataKey];
+      for (const subj of SUBJECTS) {
+        if (accumulated >= allot) break;
+        const lectures = data[subj.id];
+        if (!lectures || lectures.length === 0) continue;
+
+        let done = virtualDone[g.key][subj.id] || 0;
+        while (accumulated < allot && done < lectures.length) {
+          const [num, title, mins] = lectures[done];
+          pickedTasks.push({
+            text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''} (${mins}分)`,
+            subjId: subj.id,
+            mins,
+            bonus: isBonus,
+          });
+          accumulated += mins;
+          done++;
+          virtualDone[g.key][subj.id] = done;
+        }
       }
     });
+  }
+
+  pickForBudget(base, false);
+  pickForBudget(bonus, true);
+
+  // Append to today
+  const tasks = getData('today_' + ts, []);
+  let baseAdded = 0, bonusAdded = 0;
+  pickedTasks.forEach((lec, i) => {
+    if (tasks.find(t => t.text === lec.text)) return;
+    tasks.push({
+      text: lec.text,
+      subject: lec.subjId || '',
+      done: false,
+      bonus: lec.bonus,
+      id: Date.now() + Math.random() + i,
+    });
+    if (lec.bonus) bonusAdded++; else baseAdded++;
   });
 
   setData('today_' + ts, tasks);
   loadToday();
-  showToast(`${addedCount}件のタスクを追加しました`);
+  showToast(`${isWeekend ? '休日' : '平日'}: 基本${baseAdded}件 + できたら${bonusAdded}件を追加`);
 }
 
 // ==== TODAY ====
@@ -1109,7 +1136,7 @@ function loadToday() {
     area.innerHTML = tasks.map((t, i) => {
       const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
       const linked = t.reviewId ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
-      return `<div class="task-item ${t.done ? 'done' : ''}">
+      return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''}">
         <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>
         <div class="task-text">
           ${esc(t.text)} ${linked}
