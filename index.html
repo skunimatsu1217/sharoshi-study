@@ -341,10 +341,18 @@ textarea { resize: vertical; min-height: 60px; }
   <div id="today" class="tab-content active">
     <div class="card">
       <div class="day-header">
-        <h3 id="today-date">今日の勉強</h3>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn btn-outline btn-sm" style="padding:4px 10px" onclick="shiftViewDate(-1)">◀</button>
+          <h3 id="today-date" style="margin:0">今日の勉強</h3>
+          <button class="btn btn-outline btn-sm" style="padding:4px 10px" onclick="shiftViewDate(1)">▶</button>
+        </div>
         <span id="today-stats" style="font-size:12px;color:var(--text-light)">0 / 0</span>
       </div>
-      <div class="progress-total-bar"><div class="progress-total-fill" id="today-progress-bar"></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px" onclick="resetViewDate()">今日に戻る</button>
+        <span id="view-date-badge" style="font-size:10px;color:var(--text-light)"></span>
+      </div>
+      <div class="progress-total-bar" style="margin-top:6px"><div class="progress-total-fill" id="today-progress-bar"></div></div>
     </div>
 
     <!-- 130日間の目標 -->
@@ -783,9 +791,10 @@ function loadGoals() {
   items.forEach(it => {
     html += `<div>${it.icon} <strong>${it.label}</strong> ${it.rounds}周: 1日 約${it.perDayUnits}単位・${it.perDayMin}分</div>`;
   });
-  const { base, bonus, isWeekend, override } = getDayBudget(todayStr());
+  const { base, bonus, isWeekend, override } = getDayBudget(getViewDate());
+  const isCurrent = (getViewDate() === todayStr());
   html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,0.1);font-weight:700">
-    今日(${isWeekend ? '休日' : '平日'}${override ? ' 手動' : ''}): 基本<strong>${base}分</strong> + できたら<strong>${bonus}分</strong>
+    ${isCurrent ? '今日' : formatDate(getViewDate())}(${isWeekend ? '休日' : '平日'}${override ? ' 手動' : ''}): 基本<strong>${base}分</strong> + できたら<strong>${bonus}分</strong>
   </div>
   <div style="font-size:11px;color:var(--text-light);margin-top:2px">
     平均必要量: 約${total}分/日（目標ペース）
@@ -825,9 +834,9 @@ function getDayBudget(dateStr) {
 }
 
 function setDayMode(mode) {
-  const ts = todayStr();
+  const ts = getViewDate();
   setData('day_mode_' + ts, mode);
-  loadGoals();
+  loadToday();
   showToast(mode === 'weekend' ? '休日モードに切替' : '平日モードに切替');
 }
 
@@ -836,7 +845,7 @@ function setDayMode(mode) {
 // until budget is filled. Tracks virtualDone across base+bonus so bonus picks
 // the lectures AFTER base.
 function addGoalTasksToToday() {
-  const ts = todayStr();
+  const ts = getViewDate();
   const yesterday = addDays(ts, -1);
   const { base, bonus, isWeekend } = getDayBudget(ts);
 
@@ -1003,11 +1012,24 @@ function loadTimeProgress() {
   document.getElementById('time-progress-pct').textContent = `${pct}% 達成`;
 }
 
+// View date (default = today). Can be shifted via ◀/▶ buttons.
+let VIEW_DATE = null;
+function getViewDate() { return VIEW_DATE || todayStr(); }
+function shiftViewDate(delta) {
+  VIEW_DATE = addDays(getViewDate(), delta);
+  if (VIEW_DATE === todayStr()) VIEW_DATE = null;
+  loadToday();
+}
+function resetViewDate() { VIEW_DATE = null; loadToday(); }
+
 function loadToday() {
   loadGoals();
   loadTimeProgress();
-  const ts = todayStr();
+  const ts = getViewDate();
+  const isToday = (ts === todayStr());
   document.getElementById('today-date').textContent = `${formatDate(ts)} の勉強`;
+  const badge = document.getElementById('view-date-badge');
+  if (badge) badge.textContent = isToday ? '' : '（過去/未来の日付を表示中）';
   const tasks = getData('today_' + ts, []);
   const area = document.getElementById('today-list');
 
@@ -1039,7 +1061,7 @@ function addTodayTask() {
   const text = document.getElementById('today-add-text').value.trim();
   const subject = document.getElementById('today-add-subject').value;
   if (!text) { showToast('内容を入力してください'); return; }
-  const ts = todayStr();
+  const ts = getViewDate();
   const tasks = getData('today_' + ts, []);
   tasks.push({ text, subject, done: false, id: Date.now() });
   setData('today_' + ts, tasks);
@@ -1058,7 +1080,7 @@ function stripTaskLabel(text) {
 }
 
 function toggleToday(idx) {
-  const ts = todayStr();
+  const ts = getViewDate();
   const tasks = getData('today_' + ts, []);
   if (!tasks[idx]) return;
 
@@ -1113,7 +1135,7 @@ function toggleToday(idx) {
 }
 
 function deleteToday(idx) {
-  const ts = todayStr();
+  const ts = getViewDate();
   const tasks = getData('today_' + ts, []);
   if (!tasks[idx]) return;
 
