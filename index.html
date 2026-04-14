@@ -1079,6 +1079,19 @@ function stripTaskLabel(text) {
     .trim();
 }
 
+// Derive canonical lecture name from a structured task (goalKey/subjId/lectureIdx)
+// All categories for the same chapter → same canonical name = dedup key
+function getCanonicalLectureName(task) {
+  if (!task.subjId || typeof task.lectureIdx !== 'number') return null;
+  const subj = SUBJECTS.find(s => s.id === task.subjId);
+  if (!subj) return null;
+  const kihon = COURSE_DATA.kihon[task.subjId] || [];
+  const lec = kihon[task.lectureIdx];
+  if (!lec) return null;
+  const [num, title] = lec;
+  return `${subj.short} 第${num}章${title ? ' ' + title : ''}`;
+}
+
 function toggleToday(idx) {
   const ts = getViewDate();
   const tasks = getData('today_' + ts, []);
@@ -1087,42 +1100,62 @@ function toggleToday(idx) {
   tasks[idx].done = !tasks[idx].done;
 
   if (tasks[idx].done) {
-    // Skip auto-register if this task IS already a review task (starts with 🔄)
     const isReviewTask = /^🔄/.test(tasks[idx].text);
     if (!isReviewTask) {
       const items = getData('review_items', []);
-      const core = stripTaskLabel(tasks[idx].text);
+      const canon = getCanonicalLectureName(tasks[idx]);
+      const core = canon || stripTaskLabel(tasks[idx].text);
       const subj = tasks[idx].subject || '';
+      const textLabel = `📖 テキスト復習: ${core}`;
+      const probLabel = `✏️ 問題復習: ${core}`;
 
-      const textId = Date.now() + Math.random();
-      const probId = Date.now() + Math.random() + 0.0001;
-      items.push({
-        id: textId,
-        text: `📖 テキスト復習: ${core}`,
-        subject: subj,
-        studiedDate: ts,
-        completedReviews: [false, false, false, false, false],
-        autoLinked: true,
-      });
-      items.push({
-        id: probId,
-        text: `✏️ 問題復習: ${core}`,
-        subject: subj,
-        studiedDate: ts,
-        completedReviews: [false, false, false, false, false],
-        autoLinked: true,
-      });
+      // Dedup: if review items with same labels already exist, link to them
+      const existingText = items.find(it => it.text === textLabel);
+      const existingProb = items.find(it => it.text === probLabel);
+      const linkedIds = [];
+      let addedCount = 0;
+
+      if (existingText) {
+        linkedIds.push(existingText.id);
+      } else {
+        const id = Date.now() + Math.random();
+        items.push({
+          id, text: textLabel, subject: subj, studiedDate: ts,
+          completedReviews: [false, false, false, false, false], autoLinked: true,
+        });
+        linkedIds.push(id);
+        addedCount++;
+      }
+      if (existingProb) {
+        linkedIds.push(existingProb.id);
+      } else {
+        const id = Date.now() + Math.random() + 0.0001;
+        items.push({
+          id, text: probLabel, subject: subj, studiedDate: ts,
+          completedReviews: [false, false, false, false, false], autoLinked: true,
+        });
+        linkedIds.push(id);
+        addedCount++;
+      }
+
       setData('review_items', items);
-      tasks[idx].reviewIds = [textId, probId];
-      showToast('テキスト復習＋問題復習を登録');
+      tasks[idx].reviewIds = linkedIds;
+      showToast(addedCount > 0 ? `復習${addedCount}件を登録` : '既存の復習に紐付け');
     }
   } else {
-    // Remove linked review items
+    // Remove linked review items ONLY if no other completed task references them
     const ids = tasks[idx].reviewIds || (tasks[idx].reviewId ? [tasks[idx].reviewId] : []);
     if (ids.length) {
-      let items = getData('review_items', []);
-      items = items.filter(it => !ids.includes(it.id));
-      setData('review_items', items);
+      // Check other tasks (in all dates... but simply: check same-day tasks)
+      const sameDayRefs = tasks
+        .filter((t, i) => i !== idx && t.done && t.reviewIds)
+        .flatMap(t => t.reviewIds);
+      const toRemove = ids.filter(id => !sameDayRefs.includes(id));
+      if (toRemove.length > 0) {
+        let items = getData('review_items', []);
+        items = items.filter(it => !toRemove.includes(it.id));
+        setData('review_items', items);
+      }
       delete tasks[idx].reviewIds;
       delete tasks[idx].reviewId;
       showToast('復習登録を解除しました');
