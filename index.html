@@ -370,6 +370,7 @@ textarea { resize: vertical; min-height: 60px; }
         <button id="day-mode-weekend" class="btn btn-outline btn-sm" style="flex:1" onclick="setDayMode('weekend')">休日 8h</button>
       </div>
       <button class="btn btn-primary btn-block btn-sm" style="margin-top:8px" onclick="addGoalTasksToToday()">＋ 今日の目標タスクを追加</button>
+      <button class="btn btn-outline btn-block btn-sm" style="margin-top:6px;color:#ea580c;border-color:#ea580c" onclick="addExtraTasks()">🔥 今日はもっと頑張る (+60分)</button>
     </div>
 
     <!-- 勉強時間の可視化 -->
@@ -1310,6 +1311,93 @@ function dedupReviewItems() {
   loadReview();
   loadToday();
   showToast(removedCount > 0 ? `${removedCount}件の重複を削除` : '重複はありませんでした');
+}
+
+// 今日はもっと頑張る: 追加で指定分の講座を bonus:true でピック
+function addExtraTasks(extraMin = 60) {
+  const ts = getViewDate();
+  const todayTasks = getData('today_' + ts, []);
+
+  // Compute category ratios
+  const catTotalMin = {};
+  let grandTotal = 0;
+  GOALS.forEach(g => {
+    const tm = g.totalUnits * g.rounds * g.minPerUnit;
+    catTotalMin[g.key] = tm;
+    grandTotal += tm;
+  });
+
+  // Track already-picked lectures to avoid duplicates
+  const alreadyPicked = {};
+  todayTasks.forEach(t => {
+    if (t.goalKey && t.subjId && typeof t.lectureIdx === 'number') {
+      alreadyPicked[t.goalKey] = alreadyPicked[t.goalKey] || {};
+      const cur = alreadyPicked[t.goalKey][t.subjId] ?? -1;
+      if (t.lectureIdx > cur) alreadyPicked[t.goalKey][t.subjId] = t.lectureIdx;
+    }
+  });
+
+  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
+  const virtualDone = {};
+  GOALS.forEach(g => {
+    virtualDone[g.key] = {};
+    const progItems = g.progKey && progress[g.progKey] ? progress[g.progKey].items : [];
+    progItems.forEach(it => { virtualDone[g.key][it.id] = it.done || 0; });
+    const picked = alreadyPicked[g.key] || {};
+    Object.entries(picked).forEach(([sid, maxIdx]) => {
+      if (maxIdx + 1 > (virtualDone[g.key][sid] || 0)) {
+        virtualDone[g.key][sid] = maxIdx + 1;
+      }
+    });
+  });
+
+  const pickedTasks = [];
+  GOALS.forEach(g => {
+    if (!g.dataKey) return;
+    const allot = extraMin * (catTotalMin[g.key] / grandTotal);
+    let accumulated = 0;
+    const data = COURSE_DATA[g.dataKey];
+    for (const subj of SUBJECTS) {
+      if (accumulated >= allot) break;
+      const lectures = data[subj.id];
+      if (!lectures || lectures.length === 0) continue;
+      let done = virtualDone[g.key][subj.id] || 0;
+      while (accumulated < allot && done < lectures.length) {
+        const [num, title, mins] = lectures[done];
+        pickedTasks.push({
+          text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''} (${mins}分)`,
+          subjId: subj.id,
+          mins,
+          goalKey: g.key,
+          lectureIdx: done,
+        });
+        accumulated += mins;
+        done++;
+        virtualDone[g.key][subj.id] = done;
+      }
+    }
+  });
+
+  let added = 0;
+  pickedTasks.forEach((lec, i) => {
+    if (todayTasks.find(t => t.text === lec.text)) return;
+    todayTasks.push({
+      text: lec.text,
+      subject: lec.subjId || '',
+      done: false,
+      bonus: true,
+      goalKey: lec.goalKey,
+      subjId: lec.subjId,
+      lectureIdx: lec.lectureIdx,
+      mins: lec.mins,
+      id: Date.now() + Math.random() + i + 20000,
+    });
+    added++;
+  });
+
+  setData('today_' + ts, todayTasks);
+  loadToday();
+  showToast(added > 0 ? `🔥 追加${added}件 (+${extraMin}分)` : '追加できる講座がありません');
 }
 
 // Export all study data as JSON
