@@ -411,6 +411,7 @@ textarea { resize: vertical; min-height: 60px; }
     <div id="review-all-list"></div>
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('review-add-modal')">＋ 学習完了を記録</button>
+    <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="dedupReviewItems()">🧹 復習の重複を整理</button>
   </div>
 </div>
 
@@ -1215,6 +1216,90 @@ function carryOverToTomorrow() {
 
 // ==== REVIEW ====
 // Data structure: review_items = [{id, text, subject, studiedDate, completedReviews: [false,false,false,false,false]}]
+// Bulk dedup review items:
+// 1. Migrate old-format labels (e.g. "テキスト復習: 雇用 基本動画1 - 総則") to the
+//    canonical章-based format by stripping category prefixes.
+// 2. Merge duplicates: keep the earliest item, merge completedReviews (OR), remove others.
+// 3. Re-link today's tasks to the surviving review IDs.
+function dedupReviewItems() {
+  const items = getData('review_items', []);
+  if (items.length === 0) { showToast('復習項目がありません'); return; }
+  if (!confirm(`${items.length}件の復習項目から重複を整理します。よろしいですか？`)) return;
+
+  // Migrate text to canonical form for comparison
+  const normalize = (text) => {
+    return text
+      // Strip category keywords that identify source
+      .replace(/基本動画\d+(\s*-\s*)?/, '第')
+      .replace(/テキスト\d+(\s*-\s*)?/, '第')
+      .replace(/スマート問題集\d+(\s*-\s*)?/, '第')
+      .replace(/セレクト過去問\d+(\s*-\s*)?/, '第')
+      .replace(/選択式ポイント問題集\d+(\s*-\s*)?/, '第')
+      // "第 X" → "第X章" normalization is tricky; just collapse whitespace
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Group by normalized text
+  const groups = {};
+  items.forEach(it => {
+    const key = normalize(it.text);
+    (groups[key] ||= []).push(it);
+  });
+
+  // For each group, keep earliest (by studiedDate then id) and merge
+  const idMap = {}; // old id -> kept id
+  const survivors = [];
+  Object.values(groups).forEach(group => {
+    group.sort((a, b) => {
+      if (a.studiedDate !== b.studiedDate) return (a.studiedDate || '').localeCompare(b.studiedDate || '');
+      return a.id - b.id;
+    });
+    const keeper = group[0];
+    // Merge completedReviews via OR
+    for (let i = 1; i < group.length; i++) {
+      const other = group[i];
+      if (Array.isArray(other.completedReviews)) {
+        other.completedReviews.forEach((v, idx) => {
+          if (v) keeper.completedReviews[idx] = true;
+        });
+      }
+      idMap[other.id] = keeper.id;
+    }
+    idMap[keeper.id] = keeper.id;
+    survivors.push(keeper);
+  });
+
+  const removedCount = items.length - survivors.length;
+  setData('review_items', survivors);
+
+  // Re-link today's tasks (scan all today_* keys)
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('today_')) continue;
+    const tasks = getData(key, []);
+    let changed = false;
+    tasks.forEach(t => {
+      if (Array.isArray(t.reviewIds)) {
+        const mapped = t.reviewIds.map(id => idMap[id] || id).filter((v, i, a) => a.indexOf(v) === i);
+        if (JSON.stringify(mapped) !== JSON.stringify(t.reviewIds)) {
+          t.reviewIds = mapped;
+          changed = true;
+        }
+      }
+      if (t.reviewId && idMap[t.reviewId] && idMap[t.reviewId] !== t.reviewId) {
+        t.reviewId = idMap[t.reviewId];
+        changed = true;
+      }
+    });
+    if (changed) setData(key, tasks);
+  }
+
+  loadReview();
+  loadToday();
+  showToast(removedCount > 0 ? `${removedCount}件の重複を削除` : '重複はありませんでした');
+}
+
 function addReviewItem() {
   const text = document.getElementById('review-add-text').value.trim();
   const subject = document.getElementById('review-add-subject').value;
