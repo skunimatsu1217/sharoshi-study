@@ -361,6 +361,20 @@ textarea { resize: vertical; min-height: 60px; }
       <button class="btn btn-primary btn-block btn-sm" style="margin-top:8px" onclick="addGoalTasksToToday()">＋ 今日の目標タスクを追加</button>
     </div>
 
+    <!-- 勉強時間の可視化 -->
+    <div class="card" style="background:linear-gradient(135deg,#fff7ed,#fef3c7)">
+      <div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:8px">⏱ 勉強時間の進捗</div>
+      <div id="time-progress-list" style="font-size:12px;line-height:1.7"></div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.15)">
+        <div style="display:flex;justify-content:space-between;font-weight:700">
+          <span>累計</span>
+          <span><span id="time-progress-done">0</span> / <span id="time-progress-total">0</span> 時間</span>
+        </div>
+        <div class="progress-total-bar" style="margin-top:6px"><div class="progress-total-fill" id="time-progress-bar"></div></div>
+        <div id="time-progress-pct" style="text-align:center;font-size:11px;margin-top:4px;color:var(--text-light)">0%</div>
+      </div>
+    </div>
+
     <div id="today-list"></div>
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('today-add-modal')">＋ 勉強内容を追加</button>
@@ -462,7 +476,7 @@ const GOALS = [
   { key:'text',    icon:'📖', label:'テキスト',     rounds:10, totalUnits:174, minPerUnit:10, dataKey:'kihon',  progKey:null     },
   { key:'smart',   icon:'✏️', label:'スマート問題集', rounds:5, totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
   { key:'past',    icon:'📝', label:'セレクト過去問',       rounds:10, totalUnits:45, minPerUnit:13, dataKey:'past',   progKey:'past'   },
-  { key:'select',  icon:'🎯', label:'選択式ポイント問題集', rounds:5,  totalUnits:44, minPerUnit:14, dataKey:'select', progKey:'select' },
+  { key:'select',  icon:'🎯', label:'選択式ポイント問題集', rounds:10, totalUnits:44, minPerUnit:14, dataKey:'select', progKey:'select' },
 ];
 
 const SUBJECTS = [
@@ -949,8 +963,49 @@ function addGoalTasksToToday() {
 }
 
 // ==== TODAY ====
+// Compute actual completed study time from progress_data_v2
+function loadTimeProgress() {
+  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
+  let totalNeeded = 0, totalDone = 0;
+  const rows = [];
+
+  GOALS.forEach(g => {
+    const totalMin = g.totalUnits * g.rounds * g.minPerUnit;
+    totalNeeded += totalMin;
+
+    let doneMin = 0;
+    if (g.progKey && g.dataKey && progress[g.progKey]) {
+      const data = COURSE_DATA[g.dataKey];
+      progress[g.progKey].items.forEach(it => {
+        const lectures = data[it.id] || [];
+        // Sum actual minutes of completed lectures (within one round; multiply by virtual rounds)
+        let subjMin = 0;
+        for (let i = 0; i < Math.min(it.done, lectures.length); i++) {
+          subjMin += lectures[i][2] || 0;
+        }
+        doneMin += subjMin;
+      });
+    }
+    totalDone += doneMin;
+
+    const pct = totalMin > 0 ? Math.round(doneMin / totalMin * 100) : 0;
+    rows.push(`<div style="display:flex;justify-content:space-between">
+      <span>${g.icon} ${g.label}</span>
+      <span>${Math.round(doneMin/60)}h / ${Math.round(totalMin/60)}h (${pct}%)</span>
+    </div>`);
+  });
+
+  document.getElementById('time-progress-list').innerHTML = rows.join('');
+  document.getElementById('time-progress-done').textContent = Math.round(totalDone / 60);
+  document.getElementById('time-progress-total').textContent = Math.round(totalNeeded / 60);
+  const pct = totalNeeded > 0 ? Math.round(totalDone / totalNeeded * 100) : 0;
+  document.getElementById('time-progress-bar').style.width = pct + '%';
+  document.getElementById('time-progress-pct').textContent = `${pct}% 達成`;
+}
+
 function loadToday() {
   loadGoals();
+  loadTimeProgress();
   const ts = todayStr();
   document.getElementById('today-date').textContent = `${formatDate(ts)} の勉強`;
   const tasks = getData('today_' + ts, []);
