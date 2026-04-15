@@ -268,7 +268,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15f</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15g</div>
   </div>
 </div>
 
@@ -488,7 +488,7 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="toast" id="toast"></div>
 
-<script src="course-data.js?v=20260415e"></script>
+<script src="course-data.js?v=20260415g"></script>
 <script>
 const EXAM_DATE = new Date('2026-08-23');
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
@@ -851,14 +851,27 @@ function getDayBudget(dateStr) {
   };
 }
 
-// Scan all today_* keys and return { goalKey: { subjId: maxLectureIdx } }
-// Used to prevent duplicates when generating tasks for any date
-function collectPlannedLectures() {
-  const map = {};
+// Helper: iterate all today_* date keys in localStorage (raw keys include sharoshi_ prefix)
+// Returns array of { rawKey, dateStr, shortKey }
+function listTodayKeys() {
+  const out = [];
   for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key || !key.startsWith('today_')) continue;
-    const tasks = getData(key, []);
+    const rawKey = localStorage.key(i);
+    if (!rawKey || !rawKey.startsWith('sharoshi_today_')) continue;
+    const shortKey = rawKey.replace('sharoshi_', '');
+    const dateStr = shortKey.replace('today_', '');
+    out.push({ rawKey, dateStr, shortKey });
+  }
+  return out;
+}
+
+// Scan today_* keys up to uptoDate (inclusive) and return { goalKey: { subjId: maxLectureIdx } }
+// When uptoDate is null, scans all dates. Pass a date to ignore FUTURE dates.
+function collectPlannedLectures(uptoDate = null) {
+  const map = {};
+  listTodayKeys().forEach(({ dateStr, shortKey }) => {
+    if (uptoDate && dateStr > uptoDate) return;
+    const tasks = getData(shortKey, []);
     tasks.forEach(t => {
       if (t.goalKey && t.subjId && typeof t.lectureIdx === 'number') {
         map[t.goalKey] = map[t.goalKey] || {};
@@ -866,7 +879,7 @@ function collectPlannedLectures() {
         if (t.lectureIdx > cur) map[t.goalKey][t.subjId] = t.lectureIdx;
       }
     });
-  }
+  });
   return map;
 }
 
@@ -883,15 +896,14 @@ function extractTaskCore(text) {
     .trim();
 }
 
-// Collect all existing task cores across all today_* dates
-function collectPlannedCores() {
+// Collect all existing task cores across today_* dates up to uptoDate (inclusive)
+function collectPlannedCores(uptoDate = null) {
   const set = new Set();
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key || !key.startsWith('today_')) continue;
-    const tasks = getData(key, []);
+  listTodayKeys().forEach(({ dateStr, shortKey }) => {
+    if (uptoDate && dateStr > uptoDate) return;
+    const tasks = getData(shortKey, []);
     tasks.forEach(t => set.add(extractTaskCore(t.text)));
-  }
+  });
   return set;
 }
 
@@ -902,13 +914,10 @@ function cleanupDuplicateTasks() {
 
   // Collect all tasks with their date
   const all = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key || !key.startsWith('today_')) continue;
-    const date = key.replace('today_', '');
-    const tasks = getData(key, []);
-    tasks.forEach((t, idx) => all.push({ date, idx, task: t }));
-  }
+  listTodayKeys().forEach(({ dateStr, shortKey }) => {
+    const tasks = getData(shortKey, []);
+    tasks.forEach((t, idx) => all.push({ date: dateStr, idx, task: t }));
+  });
 
   // Group by canonical key: prefer metadata, fallback to text core
   const groups = {};
@@ -986,15 +995,10 @@ function addGoalTasksToToday() {
   // --- Step 1: Carry over undone tasks from ALL past dates ---
   // Pulls any unfinished work forward so a behind-schedule user can recover
   const todayTasks = getData('today_' + ts, []);
-  const pastDates = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith('today_')) {
-      const d = key.replace('today_', '');
-      if (d < ts) pastDates.push(d);
-    }
-  }
-  pastDates.sort();
+  const pastDates = listTodayKeys()
+    .map(k => k.dateStr)
+    .filter(d => d < ts)
+    .sort();
 
   let carriedCount = 0;
   pastDates.forEach(d => {
@@ -1034,10 +1038,10 @@ function addGoalTasksToToday() {
   const remBase = Math.max(0, base - usedBase);
   const remBonus = Math.max(0, bonus - usedBonus);
 
-  // Scan ALL today_* keys (now includes carryover) to find max lectureIdx planned
-  const alreadyPicked = collectPlannedLectures();
-  // Text-based dedup set for legacy tasks (without metadata)
-  const existingCores = collectPlannedCores();
+  // Scan today_* keys UP TO the view date (ignore future dates so past-date
+  // generation doesn't skip past chapters planned for later days)
+  const alreadyPicked = collectPlannedLectures(ts);
+  const existingCores = collectPlannedCores(ts);
 
   // --- Step 3: Compute category ratios ---
   const catTotalMin = {};
@@ -1503,11 +1507,9 @@ function dedupReviewItems() {
   const removedCount = items.length - survivors.length;
   setData('review_items', survivors);
 
-  // Re-link today's tasks (scan all today_* keys)
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key || !key.startsWith('today_')) continue;
-    const tasks = getData(key, []);
+  // Re-link today's tasks
+  listTodayKeys().forEach(({ shortKey }) => {
+    const tasks = getData(shortKey, []);
     let changed = false;
     tasks.forEach(t => {
       if (Array.isArray(t.reviewIds)) {
@@ -1522,8 +1524,8 @@ function dedupReviewItems() {
         changed = true;
       }
     });
-    if (changed) setData(key, tasks);
-  }
+    if (changed) setData(shortKey, tasks);
+  });
 
   loadReview();
   loadToday();
@@ -1544,9 +1546,9 @@ function addExtraTasks(extraMin = 60) {
     grandTotal += tm;
   });
 
-  // Scan all today_* keys to avoid duplicates across dates
-  const alreadyPicked = collectPlannedLectures();
-  const existingCores = collectPlannedCores();
+  // Scan today_* keys up to this date to avoid duplicates (ignore future)
+  const alreadyPicked = collectPlannedLectures(ts);
+  const existingCores = collectPlannedCores(ts);
 
   const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
   const virtualDone = {};
@@ -1624,17 +1626,17 @@ function addExtraTasks(extraMin = 60) {
   showToast(added > 0 ? `🔥 追加${added}件 (+${extraMin}分)` : '追加できる講座がありません');
 }
 
-// Export all study data as JSON
+// Export all study data as JSON (keys are raw localStorage keys with sharoshi_ prefix)
 function exportAllData() {
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key) continue;
     if (
-      key.startsWith('today_') ||
-      key.startsWith('day_mode_') ||
-      key === 'review_items' ||
-      key === 'progress_data_v2'
+      key.startsWith('sharoshi_today_') ||
+      key.startsWith('sharoshi_day_mode_') ||
+      key === 'sharoshi_review_items' ||
+      key === 'sharoshi_progress_data_v2'
     ) {
       try { data[key] = JSON.parse(localStorage.getItem(key)); }
       catch { data[key] = localStorage.getItem(key); }
@@ -1680,10 +1682,10 @@ function importAllData(event) {
         const key = localStorage.key(i);
         if (!key) continue;
         if (
-          key.startsWith('today_') ||
-          key.startsWith('day_mode_') ||
-          key === 'review_items' ||
-          key === 'progress_data_v2'
+          key.startsWith('sharoshi_today_') ||
+          key.startsWith('sharoshi_day_mode_') ||
+          key === 'sharoshi_review_items' ||
+          key === 'sharoshi_progress_data_v2'
         ) {
           toRemove.push(key);
         }
@@ -1717,10 +1719,10 @@ function resetAllData() {
     const key = localStorage.key(i);
     if (!key) continue;
     if (
-      key.startsWith('today_') ||
-      key.startsWith('day_mode_') ||
-      key === 'review_items' ||
-      key === 'progress_data_v2'
+      key.startsWith('sharoshi_today_') ||
+      key.startsWith('sharoshi_day_mode_') ||
+      key === 'sharoshi_review_items' ||
+      key === 'sharoshi_progress_data_v2'
     ) {
       keysToRemove.push(key);
     }
