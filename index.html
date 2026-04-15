@@ -198,8 +198,7 @@ textarea { resize: vertical; min-height: 60px; }
 .task-check.checked { background: var(--success); border-color: var(--success); }
 .task-text { flex: 1; font-size: 14px; min-width: 0; }
 .task-subj { font-size: 11px; color: var(--text-light); margin-top: 2px; }
-.task-delete { color: var(--danger); cursor: pointer; font-size: 24px; padding: 10px 14px; background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.3); border-radius: 8px; min-width: 44px; min-height: 44px; line-height: 1; flex-shrink: 0; font-weight: 700; }
-.task-delete:active { background: rgba(220, 38, 38, 0.2); }
+.task-delete { display: none; }
 
 .review-due-today { border-left: 4px solid var(--danger); }
 .review-upcoming { border-left: 4px solid var(--border); }
@@ -268,7 +267,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15g</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15h</div>
   </div>
 </div>
 
@@ -404,8 +403,8 @@ textarea { resize: vertical; min-height: 60px; }
         <button class="btn btn-outline btn-sm" style="flex:1" onclick="document.getElementById('import-file').click()">📥 インポート</button>
       </div>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAllData(event)">
+      <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="copyHistoryToClipboard()">📋 学習履歴をコピー (Claude用)</button>
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="cleanupDuplicateTasks()">🧹 日付間のタスク重複を整理</button>
-      <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px;color:#dc2626;border-color:#dc2626" onclick="resetAllData()">⚠ 全データをリセット</button>
     </div>
   </div>
 
@@ -1624,6 +1623,127 @@ function addExtraTasks(extraMin = 60) {
   setData('today_' + ts, todayTasks);
   loadToday();
   showToast(added > 0 ? `🔥 追加${added}件 (+${extraMin}分)` : '追加できる講座がありません');
+}
+
+// Build a human-readable history + JSON blob that can be pasted to Claude
+// for later reconstruction
+function buildHistoryText() {
+  const lines = [];
+  lines.push('# 社労士学習履歴');
+  lines.push(`生成日時: ${new Date().toLocaleString('ja-JP')}`);
+  lines.push(`今日: ${todayStr()}`);
+  lines.push('');
+
+  // Per-date task lists
+  const keys = listTodayKeys().sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  if (keys.length === 0) {
+    lines.push('## タスク履歴');
+    lines.push('(データなし)');
+  } else {
+    lines.push('## 日付別タスク履歴');
+    keys.forEach(({ dateStr, shortKey }) => {
+      const tasks = getData(shortKey, []);
+      if (tasks.length === 0) return;
+      const doneCount = tasks.filter(t => t.done).length;
+      lines.push('');
+      lines.push(`### ${formatDate(dateStr)} — ${doneCount}/${tasks.length} 完了`);
+      tasks.forEach(t => {
+        const mark = t.done ? '✓' : '・';
+        const flags = [
+          t.bonus ? '[できたら]' : '',
+          t.carryover ? '[繰越]' : '',
+        ].filter(Boolean).join('');
+        lines.push(`${mark} ${t.text}${flags ? ' ' + flags : ''}`);
+      });
+    });
+  }
+
+  // Progress summary
+  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
+  lines.push('');
+  lines.push('## 進捗サマリ (カテゴリ×科目の完了単元数)');
+  GOALS.forEach(g => {
+    if (!g.progKey || !progress[g.progKey]) return;
+    lines.push('');
+    lines.push(`### ${g.icon} ${g.label} (目標 ${g.rounds}周)`);
+    progress[g.progKey].items.forEach(it => {
+      lines.push(`- ${it.name}: ${it.done}/${it.total}`);
+    });
+  });
+
+  // Review items
+  const reviews = getData('review_items', []);
+  if (reviews.length > 0) {
+    lines.push('');
+    lines.push('## 復習リスト (登録済み)');
+    reviews.forEach(r => {
+      const done = (r.completedReviews || []).filter(Boolean).length;
+      lines.push(`- [${r.studiedDate || '?'}] ${r.text} (復習 ${done}/5)`);
+    });
+  }
+
+  // Machine-readable JSON blob
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (
+      key.startsWith('sharoshi_today_') ||
+      key.startsWith('sharoshi_day_mode_') ||
+      key === 'sharoshi_review_items' ||
+      key === 'sharoshi_progress_data_v2'
+    ) {
+      try { data[key] = JSON.parse(localStorage.getItem(key)); }
+      catch { data[key] = localStorage.getItem(key); }
+    }
+  }
+
+  lines.push('');
+  lines.push('---');
+  lines.push('## 機械読み込み用データ (Claudeに渡すとこのJSONから状態を復元できます)');
+  lines.push('```json');
+  lines.push(JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), data }, null, 2));
+  lines.push('```');
+
+  return lines.join('\n');
+}
+
+function copyHistoryToClipboard() {
+  const text = buildHistoryText();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => showToast('学習履歴をクリップボードにコピーしました'),
+      () => fallbackCopy(text)
+    );
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.top = '0';
+  ta.style.left = '0';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('学習履歴をコピーしました');
+  } catch {
+    // Last resort: open in a new window for manual copy
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(`<pre style="font-family:monospace;white-space:pre-wrap;padding:20px">${esc(text)}</pre>`);
+      showToast('新しいウィンドウで表示しました。手動でコピーしてください');
+    } else {
+      showToast('コピーに失敗しました');
+    }
+  }
+  document.body.removeChild(ta);
 }
 
 // Export all study data as JSON (keys are raw localStorage keys with sharoshi_ prefix)
