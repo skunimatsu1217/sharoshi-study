@@ -401,6 +401,7 @@ textarea { resize: vertical; min-height: 60px; }
         <button class="btn btn-outline btn-sm" style="flex:1" onclick="document.getElementById('import-file').click()">📥 インポート</button>
       </div>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAllData(event)">
+      <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="cleanupDuplicateTasks()">🧹 日付間のタスク重複を整理</button>
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px;color:#dc2626;border-color:#dc2626" onclick="resetAllData()">⚠ 全データをリセット</button>
     </div>
   </div>
@@ -847,6 +848,78 @@ function getDayBudget(dateStr) {
   };
 }
 
+// Scan all today_* keys and return { goalKey: { subjId: maxLectureIdx } }
+// Used to prevent duplicates when generating tasks for any date
+function collectPlannedLectures() {
+  const map = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('today_')) continue;
+    const tasks = getData(key, []);
+    tasks.forEach(t => {
+      if (t.goalKey && t.subjId && typeof t.lectureIdx === 'number') {
+        map[t.goalKey] = map[t.goalKey] || {};
+        const cur = map[t.goalKey][t.subjId] ?? -1;
+        if (t.lectureIdx > cur) map[t.goalKey][t.subjId] = t.lectureIdx;
+      }
+    });
+  }
+  return map;
+}
+
+// Remove duplicate (goalKey, subjId, lectureIdx) entries across all today_* keys
+// Keeps the earliest date; if completed anywhere, keeps the completed one
+function cleanupDuplicateTasks() {
+  if (!confirm('全日付のタスクから重複(同じ講座)を整理します。よろしいですか？')) return;
+
+  // Collect all tasks with their date
+  const all = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('today_')) continue;
+    const date = key.replace('today_', '');
+    const tasks = getData(key, []);
+    tasks.forEach((t, idx) => all.push({ date, idx, task: t }));
+  }
+
+  // Group by canonical key
+  const groups = {};
+  all.forEach(rec => {
+    const t = rec.task;
+    if (!t.goalKey || !t.subjId || typeof t.lectureIdx !== 'number') return;
+    const k = `${t.goalKey}|${t.subjId}|${t.lectureIdx}`;
+    (groups[k] ||= []).push(rec);
+  });
+
+  // For each group with duplicates, keep one (prefer completed, else earliest)
+  const removeSet = new Set();
+  Object.values(groups).forEach(group => {
+    if (group.length <= 1) return;
+    const completed = group.filter(r => r.task.done);
+    let keeper;
+    if (completed.length > 0) keeper = completed[0];
+    else {
+      group.sort((a, b) => a.date.localeCompare(b.date));
+      keeper = group[0];
+    }
+    group.forEach(r => { if (r !== keeper) removeSet.add(`${r.date}|${r.idx}`); });
+  });
+
+  // Re-save each date with duplicates removed
+  const byDate = {};
+  all.forEach(rec => {
+    if (!removeSet.has(`${rec.date}|${rec.idx}`)) {
+      (byDate[rec.date] ||= []).push(rec.task);
+    }
+  });
+  // Save only dates that had any task originally
+  const touchedDates = new Set(all.map(r => r.date));
+  touchedDates.forEach(d => setData('today_' + d, byDate[d] || []));
+
+  loadToday();
+  showToast(removeSet.size > 0 ? `${removeSet.size}件の重複を削除` : '重複はありませんでした');
+}
+
 function setDayMode(mode) {
   const ts = getViewDate();
   setData('day_mode_' + ts, mode);
@@ -889,19 +962,16 @@ function addGoalTasksToToday() {
 
   // --- Step 2: Compute remaining budget after carryover ---
   let usedBase = 0, usedBonus = 0;
-  const alreadyPicked = {}; // { goalKey: { subjId: maxLectureIdx } }
   todayTasks.forEach(t => {
     const m = parseInt((t.text.match(/\((\d+)分\)/) || [])[1] || 0);
     if (t.bonus) usedBonus += m;
     else usedBase += m;
-    if (t.goalKey && t.subjId && typeof t.lectureIdx === 'number') {
-      alreadyPicked[t.goalKey] = alreadyPicked[t.goalKey] || {};
-      const cur = alreadyPicked[t.goalKey][t.subjId] ?? -1;
-      if (t.lectureIdx > cur) alreadyPicked[t.goalKey][t.subjId] = t.lectureIdx;
-    }
   });
   const remBase = Math.max(0, base - usedBase);
   const remBonus = Math.max(0, bonus - usedBonus);
+
+  // Scan ALL today_* keys to find the max lectureIdx already planned across every date
+  const alreadyPicked = collectPlannedLectures();
 
   // --- Step 3: Compute category ratios ---
   const catTotalMin = {};
@@ -1327,15 +1397,8 @@ function addExtraTasks(extraMin = 60) {
     grandTotal += tm;
   });
 
-  // Track already-picked lectures to avoid duplicates
-  const alreadyPicked = {};
-  todayTasks.forEach(t => {
-    if (t.goalKey && t.subjId && typeof t.lectureIdx === 'number') {
-      alreadyPicked[t.goalKey] = alreadyPicked[t.goalKey] || {};
-      const cur = alreadyPicked[t.goalKey][t.subjId] ?? -1;
-      if (t.lectureIdx > cur) alreadyPicked[t.goalKey][t.subjId] = t.lectureIdx;
-    }
-  });
+  // Scan all today_* keys to avoid duplicates across dates
+  const alreadyPicked = collectPlannedLectures();
 
   const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
   const virtualDone = {};
