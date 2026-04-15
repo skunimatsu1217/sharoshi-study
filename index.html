@@ -867,6 +867,31 @@ function collectPlannedLectures() {
   return map;
 }
 
+// Extract "core" identifier from a task text for dedup
+// Examples:
+//   "📹 雇用 基本動画1 - 総則 (31分)" → "雇用 基本動画1"
+//   "📝 健保 セレクト過去問3 [2周目] (9分)" → "健保 セレクト過去問3 [2周目]"
+function extractTaskCore(text) {
+  if (!text) return '';
+  return text
+    .replace(/^\S+\s+/, '')            // strip leading emoji/icon
+    .replace(/\s*\(\d+分\)\s*$/, '')   // strip trailing (XX分)
+    .replace(/\s+-\s+.*$/, '')          // strip "- title/range" suffix
+    .trim();
+}
+
+// Collect all existing task cores across all today_* dates
+function collectPlannedCores() {
+  const set = new Set();
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('today_')) continue;
+    const tasks = getData(key, []);
+    tasks.forEach(t => set.add(extractTaskCore(t.text)));
+  }
+  return set;
+}
+
 // Remove duplicate (goalKey, subjId, lectureIdx) entries across all today_* keys
 // Keeps the earliest date; if completed anywhere, keeps the completed one
 function cleanupDuplicateTasks() {
@@ -882,13 +907,33 @@ function cleanupDuplicateTasks() {
     tasks.forEach((t, idx) => all.push({ date, idx, task: t }));
   }
 
-  // Group by canonical key
+  // Group by canonical key: prefer metadata, fallback to text core
   const groups = {};
   all.forEach(rec => {
     const t = rec.task;
-    if (!t.goalKey || !t.subjId || typeof t.lectureIdx !== 'number') return;
-    const k = `${t.goalKey}|${t.subjId}|${t.lectureIdx}`;
+    let k;
+    if (t.goalKey && t.subjId && typeof t.lectureIdx === 'number') {
+      k = `meta|${t.goalKey}|${t.subjId}|${t.lectureIdx}`;
+    } else {
+      const core = extractTaskCore(t.text);
+      if (!core) return;
+      k = `core|${core}`;
+    }
     (groups[k] ||= []).push(rec);
+  });
+
+  // Also merge groups that share the same text core (catches metadata vs non-metadata dupes)
+  const coreToGroupKey = {};
+  Object.keys(groups).forEach(gk => {
+    const rec0 = groups[gk][0];
+    const core = extractTaskCore(rec0.task.text);
+    if (coreToGroupKey[core]) {
+      // merge into existing
+      groups[coreToGroupKey[core]].push(...groups[gk]);
+      delete groups[gk];
+    } else {
+      coreToGroupKey[core] = gk;
+    }
   });
 
   // For each group with duplicates, keep one (prefer completed, else earliest)
@@ -983,6 +1028,8 @@ function addGoalTasksToToday() {
 
   // Scan ALL today_* keys to find the max lectureIdx already planned across every date
   const alreadyPicked = collectPlannedLectures();
+  // Text-based dedup set for legacy tasks (without metadata)
+  const existingCores = collectPlannedCores();
 
   // --- Step 3: Compute category ratios ---
   const catTotalMin = {};
@@ -1032,14 +1079,22 @@ function addGoalTasksToToday() {
             const localIdx = done % lectures.length;
             const [num, title, mins] = lectures[localIdx];
             const roundLabel = round > 0 ? ` [${round + 1}周目]` : '';
+            const core = `${subj.short} ${g.label}${num}${roundLabel}`;
+            if (existingCores.has(core)) {
+              done++;
+              virtualDone[g.key][subj.id] = done;
+              continue; // skip duplicate; don't consume budget
+            }
+            const fullText = `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''}${roundLabel} (${mins}分)`;
             pickedTasks.push({
-              text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''}${roundLabel} (${mins}分)`,
+              text: fullText,
               subjId: subj.id,
               mins,
               bonus: isBonus,
               goalKey: g.key,
               lectureIdx: done, // absolute
             });
+            existingCores.add(core);
             accumulated += mins;
             done++;
             virtualDone[g.key][subj.id] = done;
@@ -1462,6 +1517,7 @@ function addExtraTasks(extraMin = 60) {
 
   // Scan all today_* keys to avoid duplicates across dates
   const alreadyPicked = collectPlannedLectures();
+  const existingCores = collectPlannedCores();
 
   const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
   const virtualDone = {};
@@ -1495,6 +1551,12 @@ function addExtraTasks(extraMin = 60) {
           const localIdx = done % lectures.length;
           const [num, title, mins] = lectures[localIdx];
           const roundLabel = round > 0 ? ` [${round + 1}周目]` : '';
+          const core = `${subj.short} ${g.label}${num}${roundLabel}`;
+          if (existingCores.has(core)) {
+            done++;
+            virtualDone[g.key][subj.id] = done;
+            continue;
+          }
           pickedTasks.push({
             text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''}${roundLabel} (${mins}分)`,
             subjId: subj.id,
@@ -1502,6 +1564,7 @@ function addExtraTasks(extraMin = 60) {
             goalKey: g.key,
             lectureIdx: done,
           });
+          existingCores.add(core);
           accumulated += mins;
           done++;
           virtualDone[g.key][subj.id] = done;
