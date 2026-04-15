@@ -267,7 +267,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15d</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15e</div>
   </div>
 </div>
 
@@ -404,6 +404,7 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAllData(event)">
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="cleanupDuplicateTasks()">🧹 日付間のタスク重複を整理</button>
+      <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px;color:#dc2626;border-color:#dc2626" onclick="resetAllData()">⚠ 全データをリセット</button>
     </div>
   </div>
 
@@ -486,7 +487,7 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="toast" id="toast"></div>
 
-<script src="course-data.js?v=20260415d"></script>
+<script src="course-data.js?v=20260415e"></script>
 <script>
 const EXAM_DATE = new Date('2026-08-23');
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
@@ -518,10 +519,10 @@ const SUBJECTS = [
 
 const DEFAULT_PROGRESS = {
   kihon: { label:'基本講座', css:'pcat-lecture', color:'#1a73e8', items: [
-    { id:'koyouhou',name:'雇用保険法',done:1,total:20 },
+    { id:'koyouhou',name:'雇用保険法',done:0,total:20 },
     { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
-    { id:'kenpohou',name:'健康保険法',done:10,total:24 },
-    { id:'kokunenhou',name:'国民年金法',done:3,total:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:24 },
     { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
     { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
     { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
@@ -530,16 +531,16 @@ const DEFAULT_PROGRESS = {
     { id:'roukihou',name:'労働基準法',done:0,total:20 },
   ]},
   smart: { label:'スマート問題集', css:'pcat-smart', color:'#34a853', items: [
-    { id:'koyouhou',name:'雇用保険法',done:1,total:20 },
+    { id:'koyouhou',name:'雇用保険法',done:0,total:20 },
     { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
-    { id:'kenpohou',name:'健康保険法',done:7,total:24 },
-    { id:'kokunenhou',name:'国民年金法',done:3,total:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:24 },
     { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
     { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
     { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
     { id:'rousaihou',name:'労災保険法',done:0,total:18 },
     { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
-    { id:'roukihou',name:'労働基準法',done:2,total:20 },
+    { id:'roukihou',name:'労働基準法',done:0,total:20 },
   ]},
   past: { label:'セレクト過去問集', css:'pcat-past', color:'#b5890a', items: [
     { id:'koyouhou',name:'雇用保険法',done:0,total:5 },
@@ -1018,6 +1019,10 @@ function addGoalTasksToToday() {
     setData('today_' + d, done);
   });
 
+  // Persist carryover to today_${ts} BEFORE collecting planned lectures
+  // so that collectPlannedLectures/Cores sees them
+  setData('today_' + ts, todayTasks);
+
   // --- Step 2: Compute remaining budget after carryover ---
   let usedBase = 0, usedBonus = 0;
   todayTasks.forEach(t => {
@@ -1028,7 +1033,7 @@ function addGoalTasksToToday() {
   const remBase = Math.max(0, base - usedBase);
   const remBonus = Math.max(0, bonus - usedBonus);
 
-  // Scan ALL today_* keys to find the max lectureIdx already planned across every date
+  // Scan ALL today_* keys (now includes carryover) to find max lectureIdx planned
   const alreadyPicked = collectPlannedLectures();
   // Text-based dedup set for legacy tasks (without metadata)
   const existingCores = collectPlannedCores();
@@ -1302,6 +1307,27 @@ function toggleToday(idx) {
   if (!tasks[idx]) return;
 
   tasks[idx].done = !tasks[idx].done;
+
+  // Auto-advance progress_data_v2 when a generated task is completed
+  if (tasks[idx].done && tasks[idx].goalKey && tasks[idx].subjId && typeof tasks[idx].lectureIdx === 'number') {
+    const g = GOALS.find(gg => gg.key === tasks[idx].goalKey);
+    if (g && g.progKey) {
+      const prog = getData('progress_data_v2', DEFAULT_PROGRESS);
+      const catProg = prog[g.progKey];
+      if (catProg) {
+        const item = catProg.items.find(it => it.id === tasks[idx].subjId);
+        if (item) {
+          const kihon = COURSE_DATA.kihon[tasks[idx].subjId] || [];
+          const localIdx = kihon.length > 0 ? (tasks[idx].lectureIdx % kihon.length) : tasks[idx].lectureIdx;
+          const newDone = Math.min(item.total, localIdx + 1);
+          if (newDone > item.done) {
+            item.done = newDone;
+            setData('progress_data_v2', prog);
+          }
+        }
+      }
+    }
+  }
 
   if (tasks[idx].done) {
     const isReviewTask = /^🔄/.test(tasks[idx].text);
