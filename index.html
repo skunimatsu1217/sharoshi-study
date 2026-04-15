@@ -1010,6 +1010,9 @@ function addGoalTasksToToday() {
   });
 
   // --- Step 5: Pick new lectures to fill remaining budget ---
+  // Multi-round: iterate (round, subject) in order so round1 of all subjects
+  // completes before round2. lectureIdx is the ABSOLUTE index across rounds
+  // (= round * lectures.length + localIdx).
   const pickedTasks = [];
   function pickForBudget(totalBudget, isBonus) {
     if (totalBudget <= 0) return;
@@ -1018,24 +1021,30 @@ function addGoalTasksToToday() {
       const allot = totalBudget * (catTotalMin[g.key] / grandTotal);
       let accumulated = 0;
       const data = COURSE_DATA[g.dataKey];
-      for (const subj of SUBJECTS) {
-        if (accumulated >= allot) break;
-        const lectures = data[subj.id];
-        if (!lectures || lectures.length === 0) continue;
-        let done = virtualDone[g.key][subj.id] || 0;
-        while (accumulated < allot && done < lectures.length) {
-          const [num, title, mins] = lectures[done];
-          pickedTasks.push({
-            text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''} (${mins}分)`,
-            subjId: subj.id,
-            mins,
-            bonus: isBonus,
-            goalKey: g.key,
-            lectureIdx: done,
-          });
-          accumulated += mins;
-          done++;
-          virtualDone[g.key][subj.id] = done;
+      outer: for (let round = 0; round < g.rounds; round++) {
+        for (const subj of SUBJECTS) {
+          if (accumulated >= allot) break outer;
+          const lectures = data[subj.id];
+          if (!lectures || lectures.length === 0) continue;
+          let done = virtualDone[g.key][subj.id] || 0;
+          const target = (round + 1) * lectures.length;
+          if (done >= target) continue; // already past this round for this subject
+          while (accumulated < allot && done < target) {
+            const localIdx = done % lectures.length;
+            const [num, title, mins] = lectures[localIdx];
+            const roundLabel = round > 0 ? ` [${round + 1}周目]` : '';
+            pickedTasks.push({
+              text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''}${roundLabel} (${mins}分)`,
+              subjId: subj.id,
+              mins,
+              bonus: isBonus,
+              goalKey: g.key,
+              lectureIdx: done, // absolute
+            });
+            accumulated += mins;
+            done++;
+            virtualDone[g.key][subj.id] = done;
+          }
         }
       }
     });
@@ -1222,7 +1231,10 @@ function getCanonicalLectureName(task) {
   const subj = SUBJECTS.find(s => s.id === task.subjId);
   if (!subj) return null;
   const kihon = COURSE_DATA.kihon[task.subjId] || [];
-  const lec = kihon[task.lectureIdx];
+  if (kihon.length === 0) return null;
+  // Multi-round: use modulo to find the actual chapter within one round
+  const localIdx = task.lectureIdx % kihon.length;
+  const lec = kihon[localIdx];
   if (!lec) return null;
   const [num, title] = lec;
   return `${subj.short} 第${num}章${title ? ' ' + title : ''}`;
@@ -1472,23 +1484,29 @@ function addExtraTasks(extraMin = 60) {
     const allot = extraMin * (catTotalMin[g.key] / grandTotal);
     let accumulated = 0;
     const data = COURSE_DATA[g.dataKey];
-    for (const subj of SUBJECTS) {
-      if (accumulated >= allot) break;
-      const lectures = data[subj.id];
-      if (!lectures || lectures.length === 0) continue;
-      let done = virtualDone[g.key][subj.id] || 0;
-      while (accumulated < allot && done < lectures.length) {
-        const [num, title, mins] = lectures[done];
-        pickedTasks.push({
-          text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''} (${mins}分)`,
-          subjId: subj.id,
-          mins,
-          goalKey: g.key,
-          lectureIdx: done,
-        });
-        accumulated += mins;
-        done++;
-        virtualDone[g.key][subj.id] = done;
+    outer: for (let round = 0; round < g.rounds; round++) {
+      for (const subj of SUBJECTS) {
+        if (accumulated >= allot) break outer;
+        const lectures = data[subj.id];
+        if (!lectures || lectures.length === 0) continue;
+        let done = virtualDone[g.key][subj.id] || 0;
+        const target = (round + 1) * lectures.length;
+        if (done >= target) continue;
+        while (accumulated < allot && done < target) {
+          const localIdx = done % lectures.length;
+          const [num, title, mins] = lectures[localIdx];
+          const roundLabel = round > 0 ? ` [${round + 1}周目]` : '';
+          pickedTasks.push({
+            text: `${g.icon} ${subj.short} ${g.label}${num}${title ? ' - ' + title : ''}${roundLabel} (${mins}分)`,
+            subjId: subj.id,
+            mins,
+            goalKey: g.key,
+            lectureIdx: done,
+          });
+          accumulated += mins;
+          done++;
+          virtualDone[g.key][subj.id] = done;
+        }
       }
     }
   });
