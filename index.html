@@ -198,7 +198,8 @@ textarea { resize: vertical; min-height: 60px; }
 .task-check.checked { background: var(--success); border-color: var(--success); }
 .task-text { flex: 1; font-size: 14px; min-width: 0; }
 .task-subj { font-size: 11px; color: var(--text-light); margin-top: 2px; }
-.task-delete { color: var(--danger); cursor: pointer; font-size: 20px; padding: 0 4px; background: none; border: none; }
+.task-delete { color: var(--danger); cursor: pointer; font-size: 24px; padding: 10px 14px; background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.3); border-radius: 8px; min-width: 44px; min-height: 44px; line-height: 1; flex-shrink: 0; font-weight: 700; }
+.task-delete:active { background: rgba(220, 38, 38, 0.2); }
 
 .review-due-today { border-left: 4px solid var(--danger); }
 .review-upcoming { border-left: 4px solid var(--border); }
@@ -267,7 +268,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15e</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15f</div>
   </div>
 </div>
 
