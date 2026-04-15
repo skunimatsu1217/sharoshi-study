@@ -267,6 +267,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15d</div>
   </div>
 </div>
 
@@ -485,7 +486,7 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="toast" id="toast"></div>
 
-<script src="course-data.js?v=20260415c"></script>
+<script src="course-data.js?v=20260415d"></script>
 <script>
 const EXAM_DATE = new Date('2026-08-23');
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
@@ -1000,7 +1001,8 @@ function addGoalTasksToToday() {
     if (undone.length === 0) return;
     const done = dTasks.filter(t => t.done);
     undone.forEach(t => {
-      if (todayTasks.find(x => x.text === t.text)) return;
+      const tCore = extractTaskCore(t.text);
+      if (todayTasks.find(x => x.text === t.text || extractTaskCore(x.text) === tCore)) return;
       todayTasks.push({
         ...t,
         id: Date.now() + Math.random() + carriedCount,
