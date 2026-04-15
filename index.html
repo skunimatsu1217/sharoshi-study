@@ -933,32 +933,43 @@ function setDayMode(mode) {
 // the lectures AFTER base.
 function addGoalTasksToToday() {
   const ts = getViewDate();
-  const yesterday = addDays(ts, -1);
   const { base, bonus, isWeekend } = getDayBudget(ts);
 
-  // --- Step 1: Carry over undone tasks from yesterday ---
+  // --- Step 1: Carry over undone tasks from ALL past dates ---
+  // Pulls any unfinished work forward so a behind-schedule user can recover
   const todayTasks = getData('today_' + ts, []);
-  const yTasks = getData('today_' + yesterday, []);
-  const yUndone = yTasks.filter(t => !t.done);
-  const yDone = yTasks.filter(t => t.done);
-  let carriedCount = 0;
+  const pastDates = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('today_')) {
+      const d = key.replace('today_', '');
+      if (d < ts) pastDates.push(d);
+    }
+  }
+  pastDates.sort();
 
-  yUndone.forEach(t => {
-    // Skip duplicates already in today
-    if (todayTasks.find(x => x.text === t.text)) return;
-    todayTasks.push({
-      ...t,
-      id: Date.now() + Math.random() + carriedCount,
-      done: false,
-      reviewIds: undefined,
-      reviewId: undefined,
-      carryover: true,
-      // Carried-over bonus tasks become base (must-do) since they were skipped yesterday
-      bonus: false,
+  let carriedCount = 0;
+  pastDates.forEach(d => {
+    const dTasks = getData('today_' + d, []);
+    const undone = dTasks.filter(t => !t.done);
+    if (undone.length === 0) return;
+    const done = dTasks.filter(t => t.done);
+    undone.forEach(t => {
+      if (todayTasks.find(x => x.text === t.text)) return;
+      todayTasks.push({
+        ...t,
+        id: Date.now() + Math.random() + carriedCount,
+        done: false,
+        reviewIds: undefined,
+        reviewId: undefined,
+        carryover: true,
+        // Carried-over bonus tasks become base (must-do) since they were skipped
+        bonus: false,
+      });
+      carriedCount++;
     });
-    carriedCount++;
+    setData('today_' + d, done);
   });
-  if (carriedCount > 0) setData('today_' + yesterday, yDone);
 
   // --- Step 2: Compute remaining budget after carryover ---
   let usedBase = 0, usedBonus = 0;
@@ -1051,7 +1062,7 @@ function addGoalTasksToToday() {
 
   setData('today_' + ts, todayTasks);
   loadToday();
-  const carryMsg = carriedCount > 0 ? `繰越${carriedCount}件 + ` : '';
+  const carryMsg = carriedCount > 0 ? `過去繰越${carriedCount}件 + ` : '';
   showToast(`${carryMsg}基本${baseAdded}件 + できたら${bonusAdded}件を追加`);
 }
 
