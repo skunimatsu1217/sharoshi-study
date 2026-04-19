@@ -199,6 +199,15 @@ textarea { resize: vertical; min-height: 60px; }
 .task-text { flex: 1; font-size: 14px; min-width: 0; }
 .task-subj { font-size: 11px; color: var(--text-light); margin-top: 2px; }
 .task-delete { display: none; }
+.imp-filter-btn { font-size: 11px; padding: 5px 9px; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; }
+.imp-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.imp-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+.imp-badge.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.imp-badge.high { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+.imp-badge.normal { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+.imp-set-row { display: flex; gap: 3px; margin-top: 4px; }
+.imp-set-btn { font-size: 11px; padding: 2px 6px; border: 1px solid var(--border); background: #fff; border-radius: 4px; cursor: pointer; line-height: 1.2; }
+.imp-set-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 .review-due-today { border-left: 4px solid var(--danger); }
 .review-upcoming { border-left: 4px solid var(--border); }
@@ -267,7 +276,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15h</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15i</div>
   </div>
 </div>
 
@@ -415,6 +424,19 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="card">
       <div style="font-size:14px;font-weight:700;margin-bottom:4px">今日の復習</div>
       <div style="font-size:12px;color:var(--text-light)">忘却曲線（1日/3日/7日/14日/30日後）に基づき自動表示</div>
+    </div>
+
+    <!-- 重要度フィルタ -->
+    <div class="card" style="padding:10px 12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px">🎯 重要度フィルタ</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="imp-filter-btn" data-level="all" onclick="setReviewFilter('all')">全て</button>
+        <button class="imp-filter-btn" data-level="critical" onclick="setReviewFilter('critical')">🔥 特★★★★★</button>
+        <button class="imp-filter-btn" data-level="high" onclick="setReviewFilter('high')">⭐ ★★★以上</button>
+        <button class="imp-filter-btn" data-level="normal" onclick="setReviewFilter('normal')">・ それ以下</button>
+        <button class="imp-filter-btn" data-level="unset" onclick="setReviewFilter('unset')">未設定</button>
+      </div>
+      <p style="font-size:10px;color:var(--text-light);margin-top:6px">各復習項目の🔥⭐・ボタンをタップして章ごとの重要度を設定できます</p>
     </div>
 
     <div class="section-title" id="review-today-label">今日やるべき復習</div>
@@ -1876,6 +1898,56 @@ function addReviewItem() {
   showToast('記録しました');
 }
 
+// ==== Chapter importance ====
+// Storage: chapter_importance_v1 = { "科目short:章番号": 'critical'|'high'|'normal' }
+// Lookup: parse review item text like "📖 テキスト復習: 雇用 第1章 総則..." → "雇用:1"
+const IMPORTANCE_LABEL = {
+  critical: '🔥特★★★★★',
+  high: '⭐★★★以上',
+  normal: '・',
+  unset: '',
+};
+
+function getChapterKey(itemText) {
+  if (!itemText) return null;
+  // Match "<subj> 第<num>章" after the colon
+  const m = itemText.match(/[:：]\s*(\S+?)\s*第(\d+)章/);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
+function getImportance(itemText) {
+  const key = getChapterKey(itemText);
+  if (!key) return 'unset';
+  const map = getData('chapter_importance_v1', {});
+  return map[key] || 'unset';
+}
+
+function setImportanceForItem(itemId, level) {
+  const items = getData('review_items', []);
+  const it = items.find(x => x.id === itemId);
+  if (!it) return;
+  const key = getChapterKey(it.text);
+  if (!key) { showToast('章情報が特定できませんでした'); return; }
+  const map = getData('chapter_importance_v1', {});
+  if (level === 'unset') delete map[key];
+  else map[key] = level;
+  setData('chapter_importance_v1', map);
+  loadReview();
+}
+
+function getReviewFilter() { return getData('review_filter_v1', 'all'); }
+function setReviewFilter(level) {
+  setData('review_filter_v1', level);
+  loadReview();
+}
+
+function passesFilter(itemText) {
+  const filter = getReviewFilter();
+  if (filter === 'all') return true;
+  const imp = getImportance(itemText);
+  return imp === filter;
+}
+
 function getReviewInfo(item) {
   // Returns array of review objects {interval, label, dueDate, idx, status: 'done'|'due'|'overdue'|'upcoming'}
   const result = [];
@@ -1912,9 +1984,16 @@ function deleteReviewItem(itemId) {
 }
 
 function loadReview() {
-  const items = getData('review_items', []);
+  const allItems = getData('review_items', []);
+  const items = allItems.filter(it => passesFilter(it.text));
   const today = todayStr();
   const next7 = addDays(today, 7);
+
+  // Highlight active filter button
+  const activeFilter = getReviewFilter();
+  document.querySelectorAll('.imp-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.level === activeFilter);
+  });
 
   // Today's due + overdue
   const dueToday = [];
@@ -1931,6 +2010,24 @@ function loadReview() {
     });
   });
 
+  // Helper to render importance badge + setter buttons
+  function impBadge(text) {
+    const imp = getImportance(text);
+    return imp !== 'unset' ? `<span class="imp-badge ${imp}">${IMPORTANCE_LABEL[imp]}</span>` : '';
+  }
+  function impSetter(itemId, text) {
+    const cur = getImportance(text);
+    const levels = [
+      { k: 'critical', l: '🔥' },
+      { k: 'high', l: '⭐' },
+      { k: 'normal', l: '・' },
+      { k: 'unset', l: '✖' },
+    ];
+    return `<div class="imp-set-row">${levels.map(lv =>
+      `<button class="imp-set-btn ${cur === lv.k ? 'active' : ''}" onclick="setImportanceForItem(${itemId},'${lv.k}')">${lv.l}</button>`
+    ).join('')}</div>`;
+  }
+
   // Sort upcoming by date
   upcoming.sort((a, b) => a.review.dueDate.localeCompare(b.review.dueDate));
 
@@ -1946,10 +2043,11 @@ function loadReview() {
       return `<div class="task-item review-due-today">
         <div class="task-check" onclick="toggleReviewDone(${item.id},${review.idx})"></div>
         <div class="task-text">
-          ${esc(item.text)}
+          ${esc(item.text)}${impBadge(item.text)}
           <span class="review-badge rb-${review.interval}d">${review.label}</span>
           ${isOverdue ? `<span class="review-overdue">期限超過</span>` : ''}
           <div class="task-subj">${sn} | 学習: ${formatDate(item.studiedDate)}</div>
+          ${impSetter(item.id, item.text)}
         </div>
       </div>`;
     }).join('');
@@ -1964,7 +2062,7 @@ function loadReview() {
       const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
       return `<div class="task-item review-upcoming">
         <div class="task-text">
-          ${esc(item.text)}
+          ${esc(item.text)}${impBadge(item.text)}
           <span class="review-badge rb-${review.interval}d">${review.label}</span>
           <div class="task-subj">${sn} | ${formatDate(review.dueDate)}</div>
         </div>
@@ -1992,9 +2090,10 @@ function loadReview() {
       return `<div class="card" style="padding:10px 12px;margin-bottom:6px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600">${esc(item.text)}</div>
+            <div style="font-size:13px;font-weight:600">${esc(item.text)}${impBadge(item.text)}</div>
             <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} | ${formatDate(item.studiedDate)} | 復習 ${doneCount}/5</div>
             <div style="margin-top:4px">${dots}</div>
+            ${impSetter(item.id, item.text)}
           </div>
           <button class="card-list-delete" onclick="deleteReviewItem(${item.id})">×</button>
         </div>
