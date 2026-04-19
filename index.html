@@ -201,6 +201,8 @@ textarea { resize: vertical; min-height: 60px; }
 .task-delete { display: none; }
 .imp-filter-btn { font-size: 11px; padding: 5px 9px; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; }
 .imp-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.cat-filter-btn { font-size: 11px; padding: 6px 10px; border: 1px solid var(--border); background: #fff; border-radius: 16px; cursor: pointer; flex: 1 0 auto; }
+.cat-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .imp-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 4px; }
 .imp-badge.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .imp-badge.high { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
@@ -276,7 +278,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15n</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15o</div>
   </div>
 </div>
 
@@ -396,6 +398,16 @@ textarea { resize: vertical; min-height: 60px; }
         <div class="progress-total-bar" style="margin-top:6px"><div class="progress-total-fill" id="time-progress-bar"></div></div>
         <div id="time-progress-pct" style="text-align:center;font-size:11px;margin-top:4px;color:var(--text-light)">0%</div>
       </div>
+    </div>
+
+    <!-- カテゴリフィルタ -->
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')">全て</button>
+      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 基本動画</button>
+      <button class="cat-filter-btn" data-cat="text" onclick="setTodayCatFilter('text')">📖 テキスト</button>
+      <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')">✏️ スマート</button>
+      <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
+      <button class="cat-filter-btn" data-cat="select" onclick="setTodayCatFilter('select')">🎯 選択式</button>
     </div>
 
     <div id="today-list"></div>
@@ -1215,6 +1227,12 @@ function shiftViewDate(delta) {
 }
 function resetViewDate() { VIEW_DATE = null; loadToday(); }
 
+let TODAY_CAT_FILTER = 'all';
+function setTodayCatFilter(cat) {
+  TODAY_CAT_FILTER = cat;
+  loadToday();
+}
+
 function loadToday() {
   loadGoals();
   loadTimeProgress();
@@ -1223,13 +1241,31 @@ function loadToday() {
   document.getElementById('today-date').textContent = `${formatDate(ts)} の勉強`;
   const badge = document.getElementById('view-date-badge');
   if (badge) badge.textContent = isToday ? '' : '（過去/未来の日付を表示中）';
-  const tasks = getData('today_' + ts, []);
+  const rawTasks = getData('today_' + ts, []);
   const area = document.getElementById('today-list');
 
-  if (tasks.length === 0) {
-    area.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px">勉強内容を追加しましょう</p></div>';
+  // Highlight active category filter button
+  document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === TODAY_CAT_FILTER);
+  });
+
+  // Apply category filter then sort: undone first, done last, preserving order
+  const filteredIndexed = rawTasks
+    .map((t, originalIdx) => ({ t, originalIdx }))
+    .filter(({ t }) => TODAY_CAT_FILTER === 'all' || t.goalKey === TODAY_CAT_FILTER);
+
+  const sortedIndexed = [
+    ...filteredIndexed.filter(({ t }) => !t.done),
+    ...filteredIndexed.filter(({ t }) => t.done),
+  ];
+
+  if (sortedIndexed.length === 0) {
+    area.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px">' +
+      (rawTasks.length === 0 ? '勉強内容を追加しましょう' : '該当カテゴリのタスクはありません') +
+      '</p></div>';
   } else {
-    area.innerHTML = tasks.map((t, i) => {
+    area.innerHTML = sortedIndexed.map(({ t, originalIdx }) => {
+      const i = originalIdx;
       const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
       const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
       return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''}">
@@ -1243,6 +1279,7 @@ function loadToday() {
     }).join('');
   }
 
+  const tasks = rawTasks;
   const done = tasks.filter(t => t.done).length;
   const total = tasks.length;
   const pct = total === 0 ? 0 : Math.round(done / total * 100);
