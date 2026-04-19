@@ -276,7 +276,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15m</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15n</div>
   </div>
 </div>
 
@@ -1960,11 +1960,25 @@ function passImportanceOK(itemText, passIdx) {
   return allowed.includes(imp);
 }
 
+// Compute due date for pass N based on previous pass's actual completion date
+// Pass 0: studiedDate + interval[0]
+// Pass N>=1: previous_completion + interval[N]  (if prev completed)
+//           fallback to studiedDate + interval[N] (legacy items without dates)
+function getPassDueDate(item, passIdx) {
+  if (passIdx === 0) {
+    return addDays(item.studiedDate, REVIEW_INTERVALS[0]);
+  }
+  const prevCompleted = (item.completedReviewDates || [])[passIdx - 1];
+  if (prevCompleted) {
+    return addDays(prevCompleted, REVIEW_INTERVALS[passIdx]);
+  }
+  return addDays(item.studiedDate, REVIEW_INTERVALS[passIdx]);
+}
+
 function getReviewInfo(item) {
-  // Returns array of review objects {interval, label, dueDate, idx, status: 'done'|'due'|'overdue'|'upcoming'}
   const result = [];
   REVIEW_INTERVALS.forEach((interval, i) => {
-    const dueDate = addDays(item.studiedDate, interval);
+    const dueDate = getPassDueDate(item, i);
     const today = todayStr();
     let status;
     if (item.completedReviews[i]) status = 'done';
@@ -1981,6 +1995,13 @@ function toggleReviewDone(itemId, reviewIdx) {
   const item = items.find(it => it.id === itemId);
   if (item) {
     item.completedReviews[reviewIdx] = !item.completedReviews[reviewIdx];
+    item.completedReviewDates = item.completedReviewDates || [null, null, null, null, null];
+    if (item.completedReviews[reviewIdx]) {
+      // Record actual completion date to drive next pass scheduling
+      item.completedReviewDates[reviewIdx] = todayStr();
+    } else {
+      item.completedReviewDates[reviewIdx] = null;
+    }
     setData('review_items', items);
     loadReview();
   }
