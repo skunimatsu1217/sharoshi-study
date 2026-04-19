@@ -276,7 +276,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15i</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15j</div>
   </div>
 </div>
 
@@ -1362,37 +1362,29 @@ function toggleToday(idx) {
       const canon = getCanonicalLectureName(tasks[idx]);
       const core = canon || stripTaskLabel(tasks[idx].text);
       const subj = tasks[idx].subject || '';
-      const textLabel = `📖 テキスト復習: ${core}`;
-      const probLabel = `✏️ 問題復習: ${core}`;
+      const reviewTypes = [
+        { emoji: '📖', label: 'テキスト復習' },
+        { emoji: '✏️', label: '問題復習' },
+        { emoji: '📜', label: '条文復習' },
+      ];
 
-      // Dedup: if review items with same labels already exist, link to them
-      const existingText = items.find(it => it.text === textLabel);
-      const existingProb = items.find(it => it.text === probLabel);
       const linkedIds = [];
       let addedCount = 0;
-
-      if (existingText) {
-        linkedIds.push(existingText.id);
-      } else {
-        const id = Date.now() + Math.random();
-        items.push({
-          id, text: textLabel, subject: subj, studiedDate: ts,
-          completedReviews: [false, false, false, false, false], autoLinked: true,
-        });
-        linkedIds.push(id);
-        addedCount++;
-      }
-      if (existingProb) {
-        linkedIds.push(existingProb.id);
-      } else {
-        const id = Date.now() + Math.random() + 0.0001;
-        items.push({
-          id, text: probLabel, subject: subj, studiedDate: ts,
-          completedReviews: [false, false, false, false, false], autoLinked: true,
-        });
-        linkedIds.push(id);
-        addedCount++;
-      }
+      reviewTypes.forEach((rt, i) => {
+        const text = `${rt.emoji} ${rt.label}: ${core}`;
+        const existing = items.find(it => it.text === text);
+        if (existing) {
+          linkedIds.push(existing.id);
+        } else {
+          const id = Date.now() + Math.random() + i * 0.0001;
+          items.push({
+            id, text, subject: subj, studiedDate: ts,
+            completedReviews: [false, false, false, false, false], autoLinked: true,
+          });
+          linkedIds.push(id);
+          addedCount++;
+        }
+      });
 
       setData('review_items', items);
       tasks[idx].reviewIds = linkedIds;
