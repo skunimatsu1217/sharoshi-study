@@ -276,7 +276,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15k</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15l</div>
   </div>
 </div>
 
@@ -436,7 +436,12 @@ textarea { resize: vertical; min-height: 60px; }
         <button class="imp-filter-btn" data-level="normal" onclick="setReviewFilter('normal')">・ それ以下</button>
         <button class="imp-filter-btn" data-level="unset" onclick="setReviewFilter('unset')">未設定</button>
       </div>
-      <p style="font-size:10px;color:var(--text-light);margin-top:6px">各復習項目の🔥⭐・ボタンをタップして章ごとの重要度を設定できます</p>
+      <p style="font-size:10px;color:var(--text-light);margin-top:6px">各テキスト復習の🔥⭐・ボタンをタップして章ごとの重要度を設定できます</p>
+      <p style="font-size:10px;color:var(--text-light);margin-top:4px;padding-top:4px;border-top:1px dashed rgba(0,0,0,0.1)">
+        <strong>📖テキスト復習の自動出現ルール</strong><br>
+        1回目(1d): 🔥のみ / 2回目(3d): 🔥+⭐ / 3回目以降: 「・未設定」と「🔥+⭐」を交互<br>
+        ✏️問題復習と📜条文復習は毎回出現します
+      </p>
     </div>
 
     <div class="section-title" id="review-today-label">今日やるべき復習</div>
@@ -1946,6 +1951,34 @@ function passesFilter(itemText) {
   return imp === filter;
 }
 
+// Per-pass importance requirement for テキスト復習 only
+// 1回目(1d): 🔥のみ
+// 2回目(3d): 🔥+⭐
+// 3回目以降: 「・/未設定」と「🔥+⭐」を交互
+const TEXT_REVIEW_PASS_IMPORTANCE = [
+  ['critical'],                       // pass 0 (1d)
+  ['critical', 'high'],               // pass 1 (3d)
+  ['normal', 'unset'],                // pass 2 (7d)
+  ['critical', 'high'],               // pass 3 (14d)
+  ['normal', 'unset'],                // pass 4 (30d)
+];
+const PASS_FILTER_LABEL = [
+  '🔥のみ',
+  '🔥+⭐',
+  '・/未設定',
+  '🔥+⭐',
+  '・/未設定',
+];
+
+// For a text-review item, does its chapter's importance match the pass's filter?
+function passImportanceOK(itemText, passIdx) {
+  if (!isTextReview(itemText)) return true;
+  const allowed = TEXT_REVIEW_PASS_IMPORTANCE[passIdx];
+  if (!allowed) return true;
+  const imp = getImportance(itemText);
+  return allowed.includes(imp);
+}
+
 function getReviewInfo(item) {
   // Returns array of review objects {interval, label, dueDate, idx, status: 'done'|'due'|'overdue'|'upcoming'}
   const result = [];
@@ -2000,6 +2033,8 @@ function loadReview() {
   items.forEach(item => {
     const reviews = getReviewInfo(item);
     reviews.forEach(r => {
+      // Apply per-pass importance filter for text reviews
+      if (!passImportanceOK(item.text, r.idx)) return;
       if (r.status === 'due' || r.status === 'overdue') {
         dueToday.push({ item, review: r });
       } else if (r.status === 'upcoming' && r.dueDate <= next7) {
