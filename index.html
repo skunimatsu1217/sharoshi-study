@@ -276,7 +276,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15l</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15m</div>
   </div>
 </div>
 
@@ -426,21 +426,17 @@ textarea { resize: vertical; min-height: 60px; }
       <div style="font-size:12px;color:var(--text-light)">忘却曲線（1日/3日/7日/14日/30日後）に基づき自動表示</div>
     </div>
 
-    <!-- 重要度フィルタ -->
+    <!-- テキスト復習の自動出現ルール説明 -->
     <div class="card" style="padding:10px 12px">
-      <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px">🎯 重要度フィルタ</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="imp-filter-btn" data-level="all" onclick="setReviewFilter('all')">全て</button>
-        <button class="imp-filter-btn" data-level="critical" onclick="setReviewFilter('critical')">🔥 特★★★★★</button>
-        <button class="imp-filter-btn" data-level="high" onclick="setReviewFilter('high')">⭐ ★★★以上</button>
-        <button class="imp-filter-btn" data-level="normal" onclick="setReviewFilter('normal')">・ それ以下</button>
-        <button class="imp-filter-btn" data-level="unset" onclick="setReviewFilter('unset')">未設定</button>
+      <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px">📖 テキスト復習の自動出現ルール</div>
+      <div style="font-size:11px;line-height:1.6">
+        1回目(1d): <strong>🔥のみ</strong><br>
+        2回目(3d): <strong>🔥+⭐</strong><br>
+        3回目以降: <strong>「・未設定」と「🔥+⭐」を交互</strong>
       </div>
-      <p style="font-size:10px;color:var(--text-light);margin-top:6px">各テキスト復習の🔥⭐・ボタンをタップして章ごとの重要度を設定できます</p>
-      <p style="font-size:10px;color:var(--text-light);margin-top:4px;padding-top:4px;border-top:1px dashed rgba(0,0,0,0.1)">
-        <strong>📖テキスト復習の自動出現ルール</strong><br>
-        1回目(1d): 🔥のみ / 2回目(3d): 🔥+⭐ / 3回目以降: 「・未設定」と「🔥+⭐」を交互<br>
-        ✏️問題復習と📜条文復習は毎回出現します
+      <p style="font-size:10px;color:var(--text-light);margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,0.1)">
+        ✏️問題復習・📜条文復習は重要度問わず毎回出現<br>
+        各テキスト復習項目の🔥⭐・ボタンで章ごとの重要度を設定
       </p>
     </div>
 
@@ -1932,23 +1928,8 @@ function setImportanceForItem(itemId, level) {
   loadReview();
 }
 
-function getReviewFilter() { return getData('review_filter_v1', 'all'); }
-function setReviewFilter(level) {
-  setData('review_filter_v1', level);
-  loadReview();
-}
-
-// Only テキスト復習 is affected by importance filter. Others always pass.
 function isTextReview(itemText) {
   return /テキスト復習[:：]/.test(itemText || '');
-}
-
-function passesFilter(itemText) {
-  const filter = getReviewFilter();
-  if (filter === 'all') return true;
-  if (!isTextReview(itemText)) return true;
-  const imp = getImportance(itemText);
-  return imp === filter;
 }
 
 // Per-pass importance requirement for テキスト復習 only
@@ -2015,16 +1996,9 @@ function deleteReviewItem(itemId) {
 }
 
 function loadReview() {
-  const allItems = getData('review_items', []);
-  const items = allItems.filter(it => passesFilter(it.text));
+  const items = getData('review_items', []);
   const today = todayStr();
   const next7 = addDays(today, 7);
-
-  // Highlight active filter button
-  const activeFilter = getReviewFilter();
-  document.querySelectorAll('.imp-filter-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.level === activeFilter);
-  });
 
   // Today's due + overdue
   const dueToday = [];
