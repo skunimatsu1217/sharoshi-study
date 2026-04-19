@@ -276,7 +276,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15j</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15k</div>
   </div>
 </div>
 
@@ -1933,9 +1933,15 @@ function setReviewFilter(level) {
   loadReview();
 }
 
+// Only テキスト復習 is affected by importance filter. Others always pass.
+function isTextReview(itemText) {
+  return /テキスト復習[:：]/.test(itemText || '');
+}
+
 function passesFilter(itemText) {
   const filter = getReviewFilter();
   if (filter === 'all') return true;
+  if (!isTextReview(itemText)) return true;
   const imp = getImportance(itemText);
   return imp === filter;
 }
@@ -2002,12 +2008,14 @@ function loadReview() {
     });
   });
 
-  // Helper to render importance badge + setter buttons
+  // Helper to render importance badge + setter buttons (only for テキスト復習)
   function impBadge(text) {
+    if (!isTextReview(text)) return '';
     const imp = getImportance(text);
     return imp !== 'unset' ? `<span class="imp-badge ${imp}">${IMPORTANCE_LABEL[imp]}</span>` : '';
   }
   function impSetter(itemId, text) {
+    if (!isTextReview(text)) return '';
     const cur = getImportance(text);
     const levels = [
       { k: 'critical', l: '🔥' },
