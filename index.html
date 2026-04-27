@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260427p';
+  const BUILD = '20260427q';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -290,7 +290,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-4-27-P</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-4-27-Q</div>
   </div>
 </div>
 
@@ -578,6 +578,8 @@ textarea { resize: vertical; min-height: 60px; }
 const EXAM_DATE = new Date('2026-08-23');
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
 const REVIEW_LABELS = ['1日後','3日後','7日後','14日後','30日後'];
+// 復習1パスあたりの想定時間（分）。インデックスは REVIEW_INTERVALS と対応
+const REVIEW_MIN_PER_PASS = [5, 5, 10, 10, 15];
 
 // 130日間の目標設定
 const GOAL_START = '2026-04-13';
@@ -731,6 +733,22 @@ function computeDoneMinutes(done, lectures) {
 function computeDoneMinutesForGoal(g, done, lectures) {
   if (g.uniformTime) return Math.max(0, done) * (g.minPerUnit || 0);
   return computeDoneMinutes(done, lectures);
+}
+
+// 完了済み復習パスの合計時間（分）と件数を集計
+function computeReviewMinutes() {
+  const items = getData('review_items', []);
+  let totalMin = 0, count = 0;
+  items.forEach(it => {
+    const completed = it.completedReviews || [];
+    completed.forEach((done, i) => {
+      if (done) {
+        totalMin += REVIEW_MIN_PER_PASS[i] || 0;
+        count++;
+      }
+    });
+  });
+  return { totalMin, count };
 }
 function todayStr() { return new Date().toISOString().slice(0,10); }
 function addDays(dateStr, n) {
@@ -958,6 +976,10 @@ function loadProgressForecast() {
     `);
   });
 
+  // 復習時間も全体実績に加算（教材消化以外の貢献）
+  const review = computeReviewMinutes();
+  totalDone += review.totalMin;
+
   const overallPace = totalDone / elapsedDays;
   const overallProjected = overallPace * GOAL_DAYS;
   const overallProjectedPct = totalNeeded > 0 ? Math.round(overallProjected / totalNeeded * 100) : 0;
@@ -1019,9 +1041,23 @@ function loadProgressForecast() {
       </div>
     </div>
     <div style="font-size:10px;color:var(--text-light);text-align:center;margin-top:6px">
-      実績 ${Math.round(totalDone/60)}h → 試験日予測 ${Math.round(overallProjected/60)}h / 目標 ${Math.round(totalNeeded/60)}h
+      実績 ${Math.round(totalDone/60)}h${review.count>0?`（教材${Math.round((totalDone-review.totalMin)/60)}h+復習${Math.round(review.totalMin/60*10)/10}h）`:''} → 試験日予測 ${Math.round(overallProjected/60)}h / 目標 ${Math.round(totalNeeded/60)}h
     </div>
   `;
+
+  if (review.count > 0) {
+    rows.push(`
+      <div style="padding:6px 4px;border-bottom:1px dashed rgba(0,0,0,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+          <span><strong>🔄 復習</strong> <span style="color:var(--text-light);font-size:10px">${review.count}件完了</span></span>
+          <span style="color:var(--success);font-weight:700">+${Math.round(review.totalMin/60*10)/10}h</span>
+        </div>
+        <div style="color:var(--text-light);font-size:10px;margin-top:2px">
+          想定時間: 1d/3d=5分, 7d/14d=10分, 30d=15分
+        </div>
+      </div>
+    `);
+  }
 
   detailEl.innerHTML = rows.join('');
 }
@@ -1454,6 +1490,16 @@ function loadTimeProgress() {
       <span>${Math.round(doneMin/60)}h / ${Math.round(totalMin/60)}h (${pct}%)</span>
     </div>`);
   });
+
+  // 復習時間も累計に含める（教材消化以外の貢献として）
+  const review = computeReviewMinutes();
+  totalDone += review.totalMin;
+  if (review.count > 0) {
+    rows.push(`<div style="display:flex;justify-content:space-between;border-top:1px dashed rgba(0,0,0,0.1);margin-top:4px;padding-top:4px">
+      <span>🔄 復習</span>
+      <span>${Math.round(review.totalMin/60*10)/10}h（${review.count}件完了）</span>
+    </div>`);
+  }
 
   document.getElementById('time-progress-list').innerHTML = rows.join('');
   document.getElementById('time-progress-done').textContent = Math.round(totalDone / 60);
