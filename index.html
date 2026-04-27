@@ -7,6 +7,17 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>社労士 学習ツール 2026</title>
+<script>
+// iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
+(function(){
+  const BUILD = '20260427p';
+  const u = new URL(location.href);
+  if (u.searchParams.get('b') !== BUILD) {
+    u.searchParams.set('b', BUILD);
+    location.replace(u.toString());
+  }
+})();
+</script>
 <style>
 :root {
   --primary: #1a73e8;
@@ -149,6 +160,7 @@ textarea { resize: vertical; min-height: 60px; }
   border-radius: 8px; display: flex; justify-content: space-between; align-items: center;
 }
 .pcat-lecture { background: #e8f0fe; color: var(--primary); }
+.pcat-text { background: #fff7ed; color: #d97706; }
 .pcat-smart { background: #e6f4ea; color: var(--success); }
 .pcat-past { background: #fef7e0; color: #b5890a; }
 .pcat-select { background: #fce8e6; color: var(--danger); }
@@ -278,7 +290,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-04-15o</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-4-27-P</div>
   </div>
 </div>
 
@@ -347,6 +359,15 @@ textarea { resize: vertical; min-height: 60px; }
       <div class="progress-total-bar"><div class="progress-total-fill" id="total-progress-bar"></div></div>
       <div class="progress-total-text" id="total-progress-text">0%</div>
     </div>
+
+    <!-- ペース予測 -->
+    <div class="card" style="background:linear-gradient(135deg,#eef2ff,#fdf2f8)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">📈 このペースだと、目標の何％クリア？</div>
+      <div id="forecast-summary"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-top:10px;margin-bottom:4px">カテゴリ別予測</div>
+      <div id="forecast-details"></div>
+    </div>
+
     <div id="progress-area"></div>
   </div>
 
@@ -389,10 +410,40 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- 勉強時間の可視化 -->
     <div class="card" style="background:linear-gradient(135deg,#fff7ed,#fef3c7)">
       <div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:8px">⏱ 勉強時間の進捗</div>
+
+      <!-- 1000時間目標トラッカー -->
+      <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:700;color:#7c2d12">🎯 1000時間目標</span>
+          <span id="hours-1000-pct" style="font-size:18px;font-weight:800;color:#b45309">0%</span>
+        </div>
+        <div class="progress-total-bar"><div class="progress-total-fill" id="hours-1000-bar" style="background:linear-gradient(90deg,#f59e0b,#dc2626)"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span id="hours-1000-done" style="font-size:13px;font-weight:700">0h / 1000h</span>
+          <span id="hours-1000-remain" style="font-size:11px;color:var(--text-light)">残り 1000h</span>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.1)">
+          <span style="font-size:11px;color:var(--text-light);flex-shrink:0">手動入力:</span>
+          <input type="number" id="manual-hours-input" step="0.5" min="0" placeholder="累計時間"
+            style="flex:1;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:6px"
+            onchange="setManualHours(this.value)">
+          <span style="font-size:11px;color:var(--text-light);flex-shrink:0">時間</span>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:6px">
+          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px" onclick="addManualHours(0.5)">+0.5h</button>
+          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px" onclick="addManualHours(1)">+1h</button>
+          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px" onclick="addManualHours(3)">+3h</button>
+          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px;color:var(--danger);border-color:var(--danger)" onclick="addManualHours(-0.5)">−0.5h</button>
+        </div>
+        <div id="hours-1000-pace" style="font-size:10px;color:var(--text-light);text-align:center;margin-top:6px"></div>
+        <div id="hours-1000-delay" style="font-size:11px;text-align:center;margin-top:8px;padding:6px 8px;background:rgba(255,255,255,0.7);border-radius:6px;line-height:1.5"></div>
+      </div>
+
+      <div style="font-size:11px;color:var(--text-light);font-weight:700;margin-bottom:4px">教材別の進捗（自動算出）</div>
       <div id="time-progress-list" style="font-size:12px;line-height:1.7"></div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.15)">
         <div style="display:flex;justify-content:space-between;font-weight:700">
-          <span>累計</span>
+          <span>教材別累計</span>
           <span><span id="time-progress-done">0</span> / <span id="time-progress-total">0</span> 時間</span>
         </div>
         <div class="progress-total-bar" style="margin-top:6px"><div class="progress-total-fill" id="time-progress-bar"></div></div>
@@ -522,7 +573,7 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="toast" id="toast"></div>
 
-<script src="course-data.js?v=20260415g"></script>
+<script src="course-data.js?v=20260427p"></script>
 <script>
 const EXAM_DATE = new Date('2026-08-23');
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
@@ -533,7 +584,7 @@ const GOAL_START = '2026-04-13';
 const GOAL_DAYS = 130;
 const GOALS = [
   { key:'video',   icon:'📹', label:'基本動画',     rounds:2,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
-  { key:'text',    icon:'📖', label:'テキスト',     rounds:10, totalUnits:174, minPerUnit:10, dataKey:'kihon',  progKey:null     },
+  { key:'text',    icon:'📖', label:'テキスト',     rounds:10, totalUnits:174, minPerUnit:10, dataKey:'kihon',  progKey:'text', uniformTime:true },
   { key:'smart',   icon:'✏️', label:'スマート問題集', rounds:5, totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
   { key:'past',    icon:'📝', label:'セレクト過去問',       rounds:10, totalUnits:45, minPerUnit:13, dataKey:'past',   progKey:'past'   },
   { key:'select',  icon:'🎯', label:'選択式ポイント問題集', rounds:10, totalUnits:44, minPerUnit:14, dataKey:'select', progKey:'select' },
@@ -552,60 +603,74 @@ const SUBJECTS = [
   { id:'roukihou', name:'労働基準法', short:'労基' },
 ];
 
+// 1周あたりの講義数。本番の total は rounds 倍した値（試験日までに全rounds周完了が目標）
+// 基本講座×2周, スマート×5周, 過去問×10周, 選択式×10周
 const DEFAULT_PROGRESS = {
-  kihon: { label:'基本講座', css:'pcat-lecture', color:'#1a73e8', items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:20 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:24 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:24 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
-    { id:'roukihou',name:'労働基準法',done:0,total:20 },
+  kihon: { label:'基本講座 (×2周)', css:'pcat-lecture', color:'#1a73e8', rounds:2, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:40,perRound:20 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:48,perRound:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:48,perRound:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:48,perRound:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:20,perRound:10 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:20,perRound:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:24,perRound:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:36,perRound:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:24,perRound:12 },
+    { id:'roukihou',name:'労働基準法',done:0,total:40,perRound:20 },
   ]},
-  smart: { label:'スマート問題集', css:'pcat-smart', color:'#34a853', items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:20 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:24 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:24 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:10 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:18 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12 },
-    { id:'roukihou',name:'労働基準法',done:0,total:20 },
+  text: { label:'テキスト (×10周)', css:'pcat-text', color:'#d97706', rounds:10, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:200,perRound:20 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:240,perRound:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:240,perRound:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:240,perRound:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:100,perRound:10 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:100,perRound:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:120,perRound:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:180,perRound:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:120,perRound:12 },
+    { id:'roukihou',name:'労働基準法',done:0,total:200,perRound:20 },
   ]},
-  past: { label:'セレクト過去問集', css:'pcat-past', color:'#b5890a', items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:5 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:7 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:7 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:3 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:4 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:2 },
-    { id:'roukihou',name:'労働基準法',done:0,total:3 },
+  smart: { label:'スマート問題集 (×5周)', css:'pcat-smart', color:'#34a853', rounds:5, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:100,perRound:20 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:120,perRound:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:120,perRound:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:120,perRound:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:50,perRound:10 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:50,perRound:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:60,perRound:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:90,perRound:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:60,perRound:12 },
+    { id:'roukihou',name:'労働基準法',done:0,total:100,perRound:20 },
   ]},
-  select: { label:'選択式ポイント問題集', css:'pcat-select', color:'#ea4335', items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:5 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:6 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:7 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:7 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:3 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:3 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:5 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:5 },
-    { id:'roukihou',name:'労働基準法',done:0,total:4 },
+  past: { label:'セレクト過去問集 (×10周)', css:'pcat-past', color:'#b5890a', rounds:10, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:50,perRound:5 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:60,perRound:6 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:70,perRound:7 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:70,perRound:7 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:30,perRound:3 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:30,perRound:3 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:40,perRound:4 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:50,perRound:5 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:20,perRound:2 },
+    { id:'roukihou',name:'労働基準法',done:0,total:30,perRound:3 },
   ]},
-  summary: { label:'総まとめ講座', css:'pcat-summary', color:'#8b5cf6', items: [
-    { id:'roumu',name:'労務管理',done:0,total:4 },
-    { id:'shakai_hoshou',name:'社会保障制度',done:0,total:4 },
-    { id:'keisan',name:'計算事例対策',done:0,total:1 },
-    { id:'oudan',name:'横断整理',done:0,total:10 },
-    { id:'matome',name:'今日のまとめのまとめ',done:0,total:10 },
+  select: { label:'選択式ポイント問題集 (×10周)', css:'pcat-select', color:'#ea4335', rounds:10, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:50,perRound:5 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:60,perRound:6 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:70,perRound:7 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:70,perRound:7 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:30,perRound:3 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:30,perRound:3 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:50,perRound:5 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:50,perRound:5 },
+    { id:'roukihou',name:'労働基準法',done:0,total:40,perRound:4 },
+  ]},
+  summary: { label:'総まとめ講座', css:'pcat-summary', color:'#8b5cf6', rounds:1, items: [
+    { id:'roumu',name:'労務管理',done:0,total:4,perRound:4 },
+    { id:'shakai_hoshou',name:'社会保障制度',done:0,total:4,perRound:4 },
+    { id:'keisan',name:'計算事例対策',done:0,total:1,perRound:1 },
+    { id:'oudan',name:'横断整理',done:0,total:10,perRound:10 },
+    { id:'matome',name:'今日のまとめのまとめ',done:0,total:10,perRound:10 },
   ]},
 };
 
@@ -615,6 +680,58 @@ function getData(k, d) {
   catch { return d; }
 }
 function setData(k, v) { localStorage.setItem('sharoshi_' + k, JSON.stringify(v)); }
+
+// 既存ユーザーの progress_data_v2 の total/perRound を多周対応に更新（done は維持）
+function migrateProgressTotals() {
+  const raw = localStorage.getItem('sharoshi_progress_data_v2');
+  if (!raw) return; // 初回利用時は DEFAULT_PROGRESS が直接使われる
+  let data;
+  try { data = JSON.parse(raw); } catch { return; }
+  let changed = false;
+  for (const catKey in DEFAULT_PROGRESS) {
+    const def = DEFAULT_PROGRESS[catKey];
+    if (!data[catKey]) {
+      data[catKey] = JSON.parse(JSON.stringify(def));
+      changed = true;
+      continue;
+    }
+    // ラベル/css/color/rounds を最新化
+    ['label','css','color','rounds'].forEach(f => {
+      if (data[catKey][f] !== def[f]) { data[catKey][f] = def[f]; changed = true; }
+    });
+    def.items.forEach(defItem => {
+      const item = data[catKey].items.find(i => i.id === defItem.id);
+      if (!item) {
+        data[catKey].items.push({...defItem});
+        changed = true;
+      } else {
+        if (item.total !== defItem.total) { item.total = defItem.total; changed = true; }
+        if (item.perRound !== defItem.perRound) { item.perRound = defItem.perRound; changed = true; }
+      }
+    });
+  }
+  if (changed) setData('progress_data_v2', data);
+}
+
+// done が1周分を超えても正しく分数を加算する。done=25, lectures=20 の場合、
+// 1周(全20講義) + 5講義 を加算
+function computeDoneMinutes(done, lectures) {
+  if (!lectures || lectures.length === 0 || done <= 0) return 0;
+  const n = lectures.length;
+  const fullRounds = Math.floor(done / n);
+  const remainder = done % n;
+  let oneRound = 0;
+  for (let i = 0; i < n; i++) oneRound += lectures[i][2] || 0;
+  let mins = oneRound * fullRounds;
+  for (let i = 0; i < remainder; i++) mins += lectures[i][2] || 0;
+  return mins;
+}
+
+// uniformTime ゴール（テキスト等）は done × minPerUnit、それ以外は実際の講義分数を加算
+function computeDoneMinutesForGoal(g, done, lectures) {
+  if (g.uniformTime) return Math.max(0, done) * (g.minPerUnit || 0);
+  return computeDoneMinutes(done, lectures);
+}
 function todayStr() { return new Date().toISOString().slice(0,10); }
 function addDays(dateStr, n) {
   const d = new Date(dateStr);
@@ -756,8 +873,18 @@ function loadProgress() {
     cat.items.forEach((item, idx) => {
       const p = item.total === 0 ? 0 : Math.round(item.done / item.total * 100);
       const bc = p === 100 ? 'var(--success)' : (p > 0 ? cat.color : 'var(--border)');
+      const per = item.perRound || item.total;
+      const round = per > 0 ? Math.min((cat.rounds || 1), Math.floor(item.done / per) + 1) : 1;
+      const within = per > 0 ? (item.done % per) : item.done;
+      const isComplete = item.done >= item.total;
+      const roundBadge = isComplete
+        ? `<span style="font-size:10px;color:var(--success);font-weight:700">✓全${cat.rounds||1}周完了</span>`
+        : `<span style="font-size:10px;color:var(--text-light)">${round}周目 ${within}/${per}</span>`;
       html += `<div class="progress-row">
-        <span class="progress-label">${esc(item.name)}</span>
+        <div style="flex:1;min-width:0">
+          <div class="progress-label">${esc(item.name)}</div>
+          <div style="margin-top:2px">${roundBadge}</div>
+        </div>
         <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${p}%;background:${bc}"></div></div>
         <span class="progress-nums" style="color:${p===100?'var(--success)':'var(--text)'}">${item.done}/${item.total}</span>
         <div class="progress-btns">
@@ -773,6 +900,130 @@ function loadProgress() {
   const totalPct = totalAll === 0 ? 0 : Math.round(totalDone / totalAll * 100);
   document.getElementById('total-progress-bar').style.width = totalPct + '%';
   document.getElementById('total-progress-text').textContent = `${totalPct}% （${totalDone} / ${totalAll}）`;
+
+  loadProgressForecast();
+}
+
+// ==== PROGRESS FORECAST ====
+// 現在のペース（経過日数で割った分/日）から、試験日(GOAL_START + GOAL_DAYS)までに
+// 達成できそうな目標の％を算出する
+function loadProgressForecast() {
+  const summaryEl = document.getElementById('forecast-summary');
+  const detailEl = document.getElementById('forecast-details');
+  if (!summaryEl || !detailEl) return;
+
+  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
+  const today = todayStr();
+  const daysPassed = Math.max(0, Math.floor((new Date(today) - new Date(GOAL_START)) / (1000*60*60*24)));
+  const elapsedDays = Math.max(1, daysPassed);
+  const daysRemaining = Math.max(0, GOAL_DAYS - daysPassed);
+
+  let totalNeeded = 0, totalDone = 0;
+  const rows = [];
+
+  GOALS.forEach(g => {
+    const totalMin = g.totalUnits * g.rounds * g.minPerUnit;
+    totalNeeded += totalMin;
+
+    let doneMin = 0;
+    if (g.progKey && g.dataKey && progress[g.progKey]) {
+      const data = COURSE_DATA[g.dataKey];
+      progress[g.progKey].items.forEach(it => {
+        doneMin += computeDoneMinutesForGoal(g, it.done, data[it.id] || []);
+      });
+    }
+    totalDone += doneMin;
+
+    const pace = doneMin / elapsedDays;
+    const projectedTotal = pace * GOAL_DAYS;
+    const projectedPct = totalMin > 0 ? Math.round(projectedTotal / totalMin * 100) : 0;
+    const requiredPace = daysRemaining > 0 ? Math.ceil((totalMin - doneMin) / daysRemaining) : 0;
+    const color = projectedPct >= 100 ? 'var(--success)' : (projectedPct >= 70 ? '#d97706' : 'var(--danger)');
+    const barPct = Math.min(100, projectedPct);
+
+    rows.push(`
+      <div style="padding:6px 4px;border-bottom:1px dashed rgba(0,0,0,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+          <span><strong>${g.icon} ${g.label}</strong> <span style="color:var(--text-light);font-size:10px">×${g.rounds}周</span></span>
+          <span style="color:${color};font-weight:700">予測 ${projectedPct}%</span>
+        </div>
+        <div class="progress-bar-wrap" style="width:100%;margin:4px 0">
+          <div class="progress-bar-fill" style="width:${barPct}%;background:${color}"></div>
+        </div>
+        <div style="color:var(--text-light);font-size:10px;display:flex;justify-content:space-between">
+          <span>現${Math.round(pace)}分/日</span>
+          <span>必要${requiredPace}分/日</span>
+        </div>
+      </div>
+    `);
+  });
+
+  const overallPace = totalDone / elapsedDays;
+  const overallProjected = overallPace * GOAL_DAYS;
+  const overallProjectedPct = totalNeeded > 0 ? Math.round(overallProjected / totalNeeded * 100) : 0;
+  const overallRequiredPace = daysRemaining > 0 ? Math.ceil((totalNeeded - totalDone) / daysRemaining) : 0;
+  const overallColor = overallProjectedPct >= 100 ? 'var(--success)' : (overallProjectedPct >= 70 ? '#d97706' : 'var(--danger)');
+  const diff = overallProjectedPct - 100;
+  const diffLabel = diff >= 0
+    ? `🎉 目標に対して +${diff}%（前倒し可能）`
+    : `⚠️ 目標未達 ${diff}%（ペースアップ必要）`;
+  const paceDiff = overallRequiredPace - Math.round(overallPace);
+  const paceDiffLabel = paceDiff <= 0
+    ? '現状維持でOK'
+    : `あと +${paceDiff}分/日 必要`;
+
+  // 本日時点の必要量との差（遅れ/前倒し）
+  const dailyTargetMin = totalNeeded / GOAL_DAYS; // ≒414分/日
+  const expectedMin = dailyTargetMin * daysPassed;
+  const deltaMin = expectedMin - totalDone; // 正=遅れ
+  const deltaH = Math.round(Math.abs(deltaMin) / 60 * 10) / 10;
+  const deltaDays = Math.round(Math.abs(deltaMin) / dailyTargetMin * 10) / 10;
+  let delayHtml;
+  if (daysPassed === 0) {
+    delayHtml = `<span style="color:var(--text-light)">開始日。必要量 0h</span>`;
+  } else if (Math.abs(deltaMin) < dailyTargetMin * 0.2) {
+    delayHtml = `✅ <strong style="color:var(--success)">ほぼオンスケジュール</strong>`;
+  } else if (deltaMin > 0) {
+    delayHtml = `📍 <strong style="color:var(--danger)">遅れ ${deltaH}h（約${deltaDays}日分）</strong>`;
+  } else {
+    delayHtml = `✨ <strong style="color:var(--success)">前倒し ${deltaH}h（約${deltaDays}日分）</strong>`;
+  }
+
+  summaryEl.innerHTML = `
+    <div style="text-align:center;padding:6px 0">
+      <div style="font-size:11px;color:var(--text-light)">経過 ${daysPassed}日 / 残り ${daysRemaining}日</div>
+      <div style="font-size:36px;font-weight:800;color:${overallColor};line-height:1.1;margin:4px 0">
+        ${overallProjectedPct}<span style="font-size:18px">%</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-light)">試験日までにこのペースで達成できる目標％</div>
+      <div style="font-size:12px;font-weight:700;color:${overallColor};margin-top:4px">${diffLabel}</div>
+    </div>
+    <div style="text-align:center;font-size:12px;padding:8px;margin:6px 0;background:rgba(255,255,255,0.6);border-radius:6px;line-height:1.5">
+      ${delayHtml}
+      <div style="font-size:10px;color:var(--text-light);margin-top:4px">
+        本日時点の必要 ${Math.round(expectedMin/60*10)/10}h / 実績 ${Math.round(totalDone/60*10)/10}h ／ 1日必要 ${Math.round(dailyTargetMin)}分
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-around;font-size:11px;padding:8px 0;border-top:1px dashed rgba(0,0,0,0.1);border-bottom:1px dashed rgba(0,0,0,0.1)">
+      <div style="text-align:center">
+        <div style="color:var(--text-light)">現ペース</div>
+        <div style="font-weight:700;font-size:13px">${Math.round(overallPace)}分/日</div>
+      </div>
+      <div style="text-align:center">
+        <div style="color:var(--text-light)">必要ペース</div>
+        <div style="font-weight:700;font-size:13px">${overallRequiredPace}分/日</div>
+      </div>
+      <div style="text-align:center">
+        <div style="color:var(--text-light)">差分</div>
+        <div style="font-weight:700;font-size:13px;color:${paceDiff>0?'var(--danger)':'var(--success)'}">${paceDiffLabel}</div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text-light);text-align:center;margin-top:6px">
+      実績 ${Math.round(totalDone/60)}h → 試験日予測 ${Math.round(overallProjected/60)}h / 目標 ${Math.round(totalNeeded/60)}h
+    </div>
+  `;
+
+  detailEl.innerHTML = rows.join('');
 }
 
 function changeProgress(catKey, idx, delta) {
@@ -1123,7 +1374,8 @@ function addGoalTasksToToday() {
           if (done >= target) continue; // already past this round for this subject
           while (accumulated < allot && done < target) {
             const localIdx = done % lectures.length;
-            const [num, title, mins] = lectures[localIdx];
+            const [num, title, lectureMins] = lectures[localIdx];
+            const mins = g.uniformTime ? g.minPerUnit : lectureMins;
             const roundLabel = round > 0 ? ` [${round + 1}周目]` : '';
             const core = `${subj.short} ${g.label}${num}${roundLabel}`;
             if (existingCores.has(core)) {
@@ -1191,13 +1443,7 @@ function loadTimeProgress() {
     if (g.progKey && g.dataKey && progress[g.progKey]) {
       const data = COURSE_DATA[g.dataKey];
       progress[g.progKey].items.forEach(it => {
-        const lectures = data[it.id] || [];
-        // Sum actual minutes of completed lectures (within one round; multiply by virtual rounds)
-        let subjMin = 0;
-        for (let i = 0; i < Math.min(it.done, lectures.length); i++) {
-          subjMin += lectures[i][2] || 0;
-        }
-        doneMin += subjMin;
+        doneMin += computeDoneMinutesForGoal(g, it.done, data[it.id] || []);
       });
     }
     totalDone += doneMin;
@@ -1215,6 +1461,81 @@ function loadTimeProgress() {
   const pct = totalNeeded > 0 ? Math.round(totalDone / totalNeeded * 100) : 0;
   document.getElementById('time-progress-bar').style.width = pct + '%';
   document.getElementById('time-progress-pct').textContent = `${pct}% 達成`;
+
+  loadHours1000();
+}
+
+// ==== 1000時間目標トラッカー ====
+const HOURS_GOAL = 1000;
+
+// 1日の必要ペース（分）を GOALS 全体の総分数 / GOAL_DAYS で算出（約414分/日）
+function getDailyTargetMin() {
+  let total = 0;
+  GOALS.forEach(g => { total += g.totalUnits * g.rounds * g.minPerUnit; });
+  return total / GOAL_DAYS;
+}
+
+function loadHours1000() {
+  const hours = getData('manual_total_hours', 0);
+  const input = document.getElementById('manual-hours-input');
+  if (input && document.activeElement !== input) input.value = hours;
+
+  const pct = Math.min(100, Math.round(hours / HOURS_GOAL * 1000) / 10); // 小数1桁
+  const remain = Math.max(0, HOURS_GOAL - hours);
+  document.getElementById('hours-1000-pct').textContent = pct + '%';
+  document.getElementById('hours-1000-bar').style.width = Math.min(100, pct) + '%';
+  document.getElementById('hours-1000-done').textContent = `${hours}h / ${HOURS_GOAL}h`;
+  document.getElementById('hours-1000-remain').textContent = `残り ${remain}h`;
+
+  // 試験日までのペース予測
+  const today = todayStr();
+  const daysPassed = Math.max(0, Math.floor((new Date(today) - new Date(GOAL_START)) / (1000*60*60*24)));
+  const elapsed = Math.max(1, daysPassed);
+  const daysRemaining = Math.max(0, GOAL_DAYS - daysPassed);
+  const currentPace = hours / elapsed; // 時間/日
+  const projectedTotal = currentPace * GOAL_DAYS;
+  const projectedPct = Math.round(projectedTotal / HOURS_GOAL * 100);
+  const requiredPace = daysRemaining > 0 ? Math.round((HOURS_GOAL - hours) / daysRemaining * 10) / 10 : 0;
+  const paceColor = projectedPct >= 100 ? 'var(--success)' : (projectedPct >= 70 ? '#d97706' : 'var(--danger)');
+
+  document.getElementById('hours-1000-pace').innerHTML =
+    `現ペース <strong>${Math.round(currentPace*10)/10}h/日</strong> → 試験日予測 <strong style="color:${paceColor}">${projectedPct}%</strong>` +
+    (daysRemaining > 0 ? ` ／ 達成には <strong>${requiredPace}h/日</strong> 必要` : '');
+
+  // 遅れ/前倒し表示
+  const dailyTargetMin = getDailyTargetMin(); // ≒414分/日
+  const expectedMin = dailyTargetMin * daysPassed;
+  const actualMin = hours * 60;
+  const deltaMin = expectedMin - actualMin; // 正=遅れ / 負=前倒し
+  const deltaH = Math.round(Math.abs(deltaMin) / 60 * 10) / 10;
+  const deltaDays = Math.round(Math.abs(deltaMin) / dailyTargetMin * 10) / 10;
+  const delayEl = document.getElementById('hours-1000-delay');
+  if (delayEl) {
+    if (daysPassed === 0) {
+      delayEl.innerHTML = `<span style="color:var(--text-light)">開始日。本日時点の必要量 0h</span>`;
+    } else if (Math.abs(deltaMin) < dailyTargetMin * 0.2) {
+      delayEl.innerHTML = `✅ <strong style="color:var(--success)">ほぼオンスケジュール</strong> <span style="color:var(--text-light)">（必要 ${Math.round(expectedMin/60*10)/10}h / 実績 ${hours}h）</span>`;
+    } else if (deltaMin > 0) {
+      delayEl.innerHTML = `📍 <strong style="color:var(--danger)">遅れ ${deltaH}h（約${deltaDays}日分）</strong><br><span style="color:var(--text-light)">本日時点の必要 ${Math.round(expectedMin/60*10)/10}h / 実績 ${hours}h ／ 1日必要 ${Math.round(dailyTargetMin)}分</span>`;
+    } else {
+      delayEl.innerHTML = `✨ <strong style="color:var(--success)">前倒し ${deltaH}h（約${deltaDays}日分）</strong><br><span style="color:var(--text-light)">本日時点の必要 ${Math.round(expectedMin/60*10)/10}h / 実績 ${hours}h ／ 1日必要 ${Math.round(dailyTargetMin)}分</span>`;
+    }
+  }
+}
+
+function setManualHours(v) {
+  const h = Math.max(0, parseFloat(v) || 0);
+  setData('manual_total_hours', h);
+  loadHours1000();
+  showToast(`累計 ${h}時間 に設定`);
+}
+
+function addManualHours(delta) {
+  const cur = getData('manual_total_hours', 0);
+  const next = Math.max(0, Math.round((cur + delta) * 10) / 10);
+  setData('manual_total_hours', next);
+  loadHours1000();
+  showToast(`${delta > 0 ? '+' : ''}${delta}h → 累計 ${next}h`);
 }
 
 // View date (default = today). Can be shifted via ◀/▶ buttons.
@@ -1381,9 +1702,8 @@ function toggleToday(idx) {
       if (catProg) {
         const item = catProg.items.find(it => it.id === tasks[idx].subjId);
         if (item) {
-          const kihon = COURSE_DATA.kihon[tasks[idx].subjId] || [];
-          const localIdx = kihon.length > 0 ? (tasks[idx].lectureIdx % kihon.length) : tasks[idx].lectureIdx;
-          const newDone = Math.min(item.total, localIdx + 1);
+          // lectureIdx は絶対値（周をまたぐ）。total まで進められる
+          const newDone = Math.min(item.total, tasks[idx].lectureIdx + 1);
           if (newDone > item.done) {
             item.done = newDone;
             setData('progress_data_v2', prog);
@@ -1631,7 +1951,8 @@ function addExtraTasks(extraMin = 60) {
         if (done >= target) continue;
         while (accumulated < allot && done < target) {
           const localIdx = done % lectures.length;
-          const [num, title, mins] = lectures[localIdx];
+          const [num, title, lectureMins] = lectures[localIdx];
+          const mins = g.uniformTime ? g.minPerUnit : lectureMins;
           const roundLabel = round > 0 ? ` [${round + 1}周目]` : '';
           const core = `${subj.short} ${g.label}${num}${roundLabel}`;
           if (existingCores.has(core)) {
@@ -1743,7 +2064,8 @@ function buildHistoryText() {
       key.startsWith('sharoshi_today_') ||
       key.startsWith('sharoshi_day_mode_') ||
       key === 'sharoshi_review_items' ||
-      key === 'sharoshi_progress_data_v2'
+      key === 'sharoshi_progress_data_v2' ||
+      key === 'sharoshi_manual_total_hours'
     ) {
       try { data[key] = JSON.parse(localStorage.getItem(key)); }
       catch { data[key] = localStorage.getItem(key); }
@@ -1808,7 +2130,8 @@ function exportAllData() {
       key.startsWith('sharoshi_today_') ||
       key.startsWith('sharoshi_day_mode_') ||
       key === 'sharoshi_review_items' ||
-      key === 'sharoshi_progress_data_v2'
+      key === 'sharoshi_progress_data_v2' ||
+      key === 'sharoshi_manual_total_hours'
     ) {
       try { data[key] = JSON.parse(localStorage.getItem(key)); }
       catch { data[key] = localStorage.getItem(key); }
@@ -1857,7 +2180,8 @@ function importAllData(event) {
           key.startsWith('sharoshi_today_') ||
           key.startsWith('sharoshi_day_mode_') ||
           key === 'sharoshi_review_items' ||
-          key === 'sharoshi_progress_data_v2'
+          key === 'sharoshi_progress_data_v2' ||
+          key === 'sharoshi_manual_total_hours'
         ) {
           toRemove.push(key);
         }
@@ -1894,7 +2218,8 @@ function resetAllData() {
       key.startsWith('sharoshi_today_') ||
       key.startsWith('sharoshi_day_mode_') ||
       key === 'sharoshi_review_items' ||
-      key === 'sharoshi_progress_data_v2'
+      key === 'sharoshi_progress_data_v2' ||
+      key === 'sharoshi_manual_total_hours'
     ) {
       keysToRemove.push(key);
     }
@@ -2186,6 +2511,9 @@ document.addEventListener('click', e => {
 
 // ==== INIT ====
 function init() {
+  // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
+  migrateProgressTotals();
+
   // Countdown
   const today = new Date();
   const diff = Math.ceil((EXAM_DATE - today) / (1000 * 60 * 60 * 24));
