@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260427q';
+  const BUILD = '20260427r';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -290,7 +290,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-4-27-Q</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-4-27-R</div>
   </div>
 </div>
 
@@ -735,6 +735,24 @@ function computeDoneMinutesForGoal(g, done, lectures) {
   return computeDoneMinutes(done, lectures);
 }
 
+// 復習タスク（🔄 で始まる today タスク）から復習アイテムとパスを特定。
+// task に reviewItemId/reviewIdx があればそれを使い、なければ text から逆引き
+function resolveReviewLink(task) {
+  if (task.reviewItemId != null && typeof task.reviewIdx === 'number') {
+    return { itemId: task.reviewItemId, reviewIdx: task.reviewIdx };
+  }
+  const m = (task.text || '').match(/^🔄\s+(.+?)\s+\[(.+?)\]\s*$/);
+  if (!m) return null;
+  const itemText = m[1];
+  const labelText = m[2];
+  const reviewIdx = REVIEW_LABELS.indexOf(labelText);
+  if (reviewIdx < 0) return null;
+  const items = getData('review_items', []);
+  const item = items.find(it => it.text === itemText);
+  if (!item) return null;
+  return { itemId: item.id, reviewIdx };
+}
+
 // 完了済み復習パスの合計時間（分）と件数を集計
 function computeReviewMinutes() {
   const items = getData('review_items', []);
@@ -1083,7 +1101,14 @@ function addReviewTasksToToday() {
       if (r.status === 'due' || r.status === 'overdue') {
         const label = `🔄 ${item.text} [${r.label}]`;
         if (!tasks.find(t => t.text === label)) {
-          tasks.push({ text:label, subject:item.subject, done:false, id:Date.now()+Math.random()+count });
+          tasks.push({
+            text: label,
+            subject: item.subject,
+            done: false,
+            reviewItemId: item.id,
+            reviewIdx: r.idx,
+            id: Date.now() + Math.random() + count
+          });
           count++;
         }
       }
@@ -1759,8 +1784,29 @@ function toggleToday(idx) {
     }
   }
 
+  const isReviewTask = /^🔄/.test(tasks[idx].text);
+
+  // 復習タスクの完了/未完了を review_items 側にも反映
+  if (isReviewTask) {
+    const link = resolveReviewLink(tasks[idx]);
+    if (link) {
+      const rItems = getData('review_items', []);
+      const rItem = rItems.find(it => it.id === link.itemId);
+      if (rItem) {
+        rItem.completedReviews = rItem.completedReviews || [false, false, false, false, false];
+        rItem.completedReviewDates = rItem.completedReviewDates || [null, null, null, null, null];
+        rItem.completedReviews[link.reviewIdx] = tasks[idx].done;
+        rItem.completedReviewDates[link.reviewIdx] = tasks[idx].done ? todayStr() : null;
+        setData('review_items', rItems);
+        // 後続トグルが速くなるよう task 側にも保存
+        tasks[idx].reviewItemId = link.itemId;
+        tasks[idx].reviewIdx = link.reviewIdx;
+        if (tasks[idx].done) showToast(`復習完了: ${REVIEW_LABELS[link.reviewIdx]}`);
+      }
+    }
+  }
+
   if (tasks[idx].done) {
-    const isReviewTask = /^🔄/.test(tasks[idx].text);
     if (!isReviewTask) {
       const items = getData('review_items', []);
       const canon = getCanonicalLectureName(tasks[idx]);
@@ -1794,7 +1840,7 @@ function toggleToday(idx) {
       tasks[idx].reviewIds = linkedIds;
       showToast(addedCount > 0 ? `復習${addedCount}件を登録` : '既存の復習に紐付け');
     }
-  } else {
+  } else if (!isReviewTask) {
     // Remove linked review items ONLY if no other completed task references them
     const ids = tasks[idx].reviewIds || (tasks[idx].reviewId ? [tasks[idx].reviewId] : []);
     if (ids.length) {
@@ -2405,13 +2451,33 @@ function toggleReviewDone(itemId, reviewIdx) {
     item.completedReviews[reviewIdx] = !item.completedReviews[reviewIdx];
     item.completedReviewDates = item.completedReviewDates || [null, null, null, null, null];
     if (item.completedReviews[reviewIdx]) {
-      // Record actual completion date to drive next pass scheduling
       item.completedReviewDates[reviewIdx] = todayStr();
     } else {
       item.completedReviewDates[reviewIdx] = null;
     }
     setData('review_items', items);
+
+    // 全 today_<date> から対応する 🔄 タスクを探して同期
+    const expectedLabel = `🔄 ${item.text} [${REVIEW_LABELS[reviewIdx]}]`;
+    listTodayKeys().forEach(({ shortKey }) => {
+      const tasks = getData(shortKey, []);
+      let changed = false;
+      tasks.forEach(t => {
+        const matchById = (t.reviewItemId === itemId && t.reviewIdx === reviewIdx);
+        const matchByText = (t.text === expectedLabel);
+        if (matchById || matchByText) {
+          if (t.done !== item.completedReviews[reviewIdx]) {
+            t.done = item.completedReviews[reviewIdx];
+            changed = true;
+          }
+        }
+      });
+      if (changed) setData(shortKey, tasks);
+    });
+
     loadReview();
+    // 今日タブが既に描画されている場合は時間表示も更新
+    if (typeof loadToday === 'function') loadToday();
   }
 }
 
