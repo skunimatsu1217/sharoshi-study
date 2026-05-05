@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505i';
+  const BUILD = '20260505j';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-I</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-J</div>
   </div>
 </div>
 
@@ -1825,7 +1825,7 @@ function toggleTaskSelection(taskId) {
   taskId = String(taskId);
   if (SELECTED_TASK_IDS.has(taskId)) SELECTED_TASK_IDS.delete(taskId);
   else SELECTED_TASK_IDS.add(taskId);
-  updateSelectModeUI();
+  loadToday();
 }
 function updateSelectModeUI() {
   const btn = document.getElementById('select-mode-btn');
@@ -1849,10 +1849,12 @@ function deleteSelectedTasks() {
   if (!confirm(`選択した${SELECTED_TASK_IDS.size}件を削除します。\n復習タスクの場合、紐付く復習項目も削除されます。`)) return;
   const ts = getViewDate();
   let tasks = getData('today_' + ts, []);
+  // tid 解決: id があればそれ、無ければ idx-<index>
+  const tidOf = (t, i) => (t.id != null && t.id !== '') ? String(t.id) : `idx-${i}`;
   // 復習項目側で削除する ID を収集
   const reviewItemIdsToRemove = new Set();
-  tasks.forEach(t => {
-    if (SELECTED_TASK_IDS.has(String(t.id))) {
+  tasks.forEach((t, i) => {
+    if (SELECTED_TASK_IDS.has(tidOf(t, i))) {
       if (/^🔄/.test(t.text) && t.reviewItemId != null) reviewItemIdsToRemove.add(t.reviewItemId);
       if (t.reviewId) reviewItemIdsToRemove.add(t.reviewId);
     }
@@ -1862,7 +1864,6 @@ function deleteSelectedTasks() {
     let items = getData('review_items', []);
     items = items.filter(it => !reviewItemIdsToRemove.has(it.id));
     setData('review_items', items);
-    // 全 today_* から該当 review 紐付けタスクも削除
     listTodayKeys().forEach(({ shortKey }) => {
       const list = getData(shortKey, []);
       const filtered = list.filter(x => {
@@ -1875,7 +1876,7 @@ function deleteSelectedTasks() {
   }
   // 今日のタスクから選択IDを削除
   tasks = getData('today_' + ts, []);
-  tasks = tasks.filter(t => !SELECTED_TASK_IDS.has(String(t.id)));
+  tasks = tasks.filter((t, i) => !SELECTED_TASK_IDS.has(tidOf(t, i)));
   setData('today_' + ts, tasks);
 
   const cnt = SELECTED_TASK_IDS.size;
@@ -1929,13 +1930,15 @@ function loadToday() {
 
   const renderTask = ({ t, originalIdx }) => {
     const i = originalIdx;
+    // 選択用 ID: 既存 id があればそれ、無ければ index ベース
+    const tid = (t.id != null && t.id !== '') ? t.id : `idx-${i}`;
     const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
     const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
     const isRev = /^🔄/.test(t.text);
-    const isSelected = SELECTED_TASK_IDS.has(String(t.id));
+    const isSelected = SELECTED_TASK_IDS.has(String(tid));
     let checkHTML;
     if (SELECT_MODE) {
-      checkHTML = `<div class="task-check select-mode ${isSelected ? 'checked' : ''}" onclick="toggleTaskSelection('${t.id}')">${isSelected ? '✓' : ''}</div>`;
+      checkHTML = `<div class="task-check select-mode ${isSelected ? 'checked' : ''}">${isSelected ? '✓' : ''}</div>`;
     } else if (isRev) {
       checkHTML = `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`;
     } else {
@@ -1945,7 +1948,9 @@ function loadToday() {
       ? ''
       : `<button class="task-delete" onclick="deleteToday(${i})" title="${isRev ? '復習項目ごと削除' : '削除'}">×</button>`;
     const revHint = isRev ? ' <span class="review-badge rb-7d">復習タブで管理</span>' : '';
-    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''} ${isSelected ? 'selected-task' : ''}">
+    // 選択モードでは行全体をクリック可能に
+    const rowOnclick = SELECT_MODE ? `onclick="toggleTaskSelection('${tid}')" style="cursor:pointer"` : '';
+    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''} ${isSelected ? 'selected-task' : ''}" ${rowOnclick}>
       ${checkHTML}
       <div class="task-text">
         ${esc(t.text)} ${linked}${revHint}
@@ -2994,7 +2999,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-I');
+  autoBackupOnce('v2026-5-5-J');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
