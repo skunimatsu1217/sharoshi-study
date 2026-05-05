@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505g';
+  const BUILD = '20260505h';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -293,7 +293,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-G</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-H</div>
   </div>
 </div>
 
@@ -481,6 +481,7 @@ textarea { resize: vertical; min-height: 60px; }
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAllData(event)">
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="copyHistoryToClipboard()">📋 学習履歴をコピー (Claude用)</button>
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="cleanupDuplicateTasks()">🧹 日付間のタスク重複を整理</button>
+      <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="clearTodayReviewTasks()">🗑 今日の復習タスク+復習項目を一括削除</button>
     </div>
   </div>
 
@@ -1251,6 +1252,7 @@ function autoAddDueTextReviews(dateStr) {
   if (dateStr !== todayStr()) return 0;
   const tasks = getData('today_' + dateStr, []);
   const items = getData('review_items', []);
+  const dismissed = getData('dismissed_' + dateStr, []);
   let count = 0;
   items.forEach(item => {
     if (!isActiveTextReview(item)) return;
@@ -1261,6 +1263,8 @@ function autoAddDueTextReviews(dateStr) {
     if (!due || due > dateStr) return;
     const dup = tasks.find(t => t.reviewItemId === item.id && t.reviewIdx === doneCount);
     if (dup) return;
+    // ユーザーが今日のリストから消した分は再追加しない
+    if (dismissed.includes(`${item.id}:${doneCount}`)) return;
     const chapter = stripTextReviewPrefix(item.text);
     const passLabel = `${doneCount + 1}/${cfg.passes}回${cfg.label}`;
     // 初学日 + 前回日（あれば）+ N日前 + N回目
@@ -1847,7 +1851,8 @@ function loadToday() {
     const checkHTML = isRev
       ? `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`
       : `<div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>`;
-    const deleteHTML = isRev ? '' : `<button class="task-delete" onclick="deleteToday(${i})">×</button>`;
+    // 削除ボタンは全タスクに表示（復習タスクの場合は今日のリストから消すだけで復習項目は残る）
+    const deleteHTML = `<button class="task-delete" onclick="deleteToday(${i})" title="${isRev ? '今日のリストから消す（復習項目は残る）' : '削除'}">×</button>`;
     const revHint = isRev ? ' <span class="review-badge rb-7d">復習タブで管理</span>' : '';
     return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''}">
       ${checkHTML}
@@ -2104,18 +2109,69 @@ function deleteToday(idx) {
   const tasks = getData('today_' + ts, []);
   if (!tasks[idx]) return;
 
-  // If linked review exists, remove it too
-  if (tasks[idx].reviewId) {
+  const t = tasks[idx];
+  const isRev = /^🔄/.test(t.text);
+  let removedReviewId = null;
+
+  // 復習タスク削除: 復習項目本体も削除し、今後この章の復習は出現させない
+  if (isRev && t.reviewItemId != null) {
     let items = getData('review_items', []);
-    items = items.filter(it => it.id !== tasks[idx].reviewId);
+    const before = items.length;
+    items = items.filter(it => it.id !== t.reviewItemId);
+    if (items.length < before) {
+      removedReviewId = t.reviewItemId;
+      setData('review_items', items);
+    }
+  } else if (t.reviewId) {
+    let items = getData('review_items', []);
+    items = items.filter(it => it.id !== t.reviewId);
     setData('review_items', items);
+    removedReviewId = t.reviewId;
   }
 
-  tasks.splice(idx, 1);
-  setData('today_' + ts, tasks);
+  // 全 today_* から同じ reviewItemId/reviewIds を持つタスクをクリーンアップ
+  if (removedReviewId != null) {
+    listTodayKeys().forEach(({ shortKey }) => {
+      const list = getData(shortKey, []);
+      const filtered = list.filter(x => {
+        if (x.reviewItemId === removedReviewId) return false;
+        if (Array.isArray(x.reviewIds) && x.reviewIds.includes(removedReviewId)) return false;
+        if (x.reviewId === removedReviewId) return false;
+        return true;
+      });
+      if (filtered.length !== list.length) setData(shortKey, filtered);
+    });
+  } else {
+    tasks.splice(idx, 1);
+    setData('today_' + ts, tasks);
+  }
+
   loadToday();
   loadReview();
-  showToast('削除しました');
+  showToast(isRev ? '復習スケジュールから削除しました' : '削除しました');
+}
+
+// 今日のリストにある全 🔄 復習タスクを削除し、紐付く review_item も完全削除
+function clearTodayReviewTasks() {
+  const ts = todayStr();
+  const tasks = getData('today_' + ts, []);
+  const revTasks = tasks.filter(t => /^🔄/.test(t.text));
+  if (revTasks.length === 0) { showToast('今日の復習タスクはありません'); return; }
+  if (!confirm(`今日の復習タスク${revTasks.length}件と、紐付く復習項目も完全削除します。\n\nこの章は今後復習スケジュールに出現しなくなります。よろしいですか？`)) return;
+  const removeIds = new Set(revTasks.map(t => t.reviewItemId).filter(Boolean));
+  // review_items から完全削除
+  let items = getData('review_items', []);
+  items = items.filter(it => !removeIds.has(it.id));
+  setData('review_items', items);
+  // 全 today_* から該当タスクを削除
+  listTodayKeys().forEach(({ shortKey }) => {
+    const list = getData(shortKey, []);
+    const filtered = list.filter(x => !(x.reviewItemId != null && removeIds.has(x.reviewItemId)));
+    if (filtered.length !== list.length) setData(shortKey, filtered);
+  });
+  loadToday();
+  loadReview();
+  showToast(`復習${revTasks.length}件と関連項目を削除`);
 }
 
 function carryOverToTomorrow() {
@@ -2859,7 +2915,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-G');
+  autoBackupOnce('v2026-5-5-H');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
