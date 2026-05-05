@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505b';
+  const BUILD = '20260505c';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -290,7 +290,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-B</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-C</div>
   </div>
 </div>
 
@@ -1963,7 +1963,7 @@ function toggleToday(idx) {
 
   if (tasks[idx].done) {
     if (!isReviewTask) {
-      // テキスト学習用に章単位のレビュー項目を1件だけ登録（テキスト復習のみ）
+      // 動画完了時: テキスト復習(章単位)を登録 + 初回テキスト学習タスクを今日に追加
       const items = getData('review_items', []);
       const canon = getCanonicalLectureName(tasks[idx]);
       const core = canon || stripTaskLabel(tasks[idx].text);
@@ -1972,10 +1972,13 @@ function toggleToday(idx) {
       const existing = items.find(it => it.text === text && !it.deprecated);
       const linkedIds = [];
       let addedCount = 0;
+      let reviewItemId;
       if (existing) {
         linkedIds.push(existing.id);
+        reviewItemId = existing.id;
       } else {
         const id = Date.now() + Math.random();
+        reviewItemId = id;
         items.push({
           id, text, subject: subj, studiedDate: ts,
           completedPasses: [], autoLinked: true,
@@ -1985,7 +1988,29 @@ function toggleToday(idx) {
       }
       setData('review_items', items);
       tasks[idx].reviewIds = linkedIds;
-      if (addedCount > 0) showToast('テキスト復習に登録');
+
+      // 初回テキスト学習タスクを今日のタスクに追加（動画 → テキスト の流れ）
+      // 既に reviewIdx=0 のタスクがあればスキップ
+      const reviewItem = items.find(it => it.id === reviewItemId);
+      const cfg = getItemReviewConfig(reviewItem);
+      const alreadyHasInitial = tasks.some(t => t.reviewItemId === reviewItemId && t.reviewIdx === 0);
+      const passDone = (reviewItem.completedPasses || [])[0];
+      if (!alreadyHasInitial && !passDone) {
+        const initialText = `🔄 ${text} [初回・1/${cfg.passes}回${cfg.label}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
+        tasks.push({
+          text: initialText,
+          subject: subj,
+          done: false,
+          reviewItemId,
+          reviewIdx: 0,
+          mins: TEXT_REVIEW_MIN_PER_PASS,
+          goalKey: 'review',
+          id: Date.now() + Math.random() + 1,
+        });
+        showToast(addedCount > 0 ? '復習登録 + 初回テキスト学習を追加' : '初回テキスト学習を追加');
+      } else if (addedCount > 0) {
+        showToast('テキスト復習に登録');
+      }
     }
   } else if (!isReviewTask) {
     // Remove linked review items ONLY if no other completed task references them
@@ -2769,7 +2794,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-B');
+  autoBackupOnce('v2026-5-5-C');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
