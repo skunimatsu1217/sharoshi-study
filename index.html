@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505h';
+  const BUILD = '20260505i';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -211,6 +211,9 @@ textarea { resize: vertical; min-height: 60px; }
 .task-check.readonly { cursor: not-allowed; opacity: 0.65; pointer-events: none; background: #eee; border-style: dashed; font-size: 10px; color: #888; }
 .task-check.readonly.checked { background: var(--success); border-color: var(--success); border-style: solid; opacity: 1; color: white; font-size: 14px; }
 .task-item.readonly-task { background: #f8f9ff; }
+.task-check.select-mode { background: white; border-color: var(--danger); border-style: solid; }
+.task-check.select-mode.checked { background: var(--danger); border-color: var(--danger); color: white; }
+.task-item.selected-task { background: #ffe5e5; outline: 2px solid var(--danger); }
 .task-text { flex: 1; font-size: 14px; min-width: 0; }
 .task-subj { font-size: 11px; color: var(--text-light); margin-top: 2px; }
 .task-delete { display: none; }
@@ -293,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-H</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-I</div>
   </div>
 </div>
 
@@ -457,12 +460,19 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- カテゴリフィルタ -->
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
       <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')">全て</button>
-      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 基本動画</button>
+      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 動画+テキスト</button>
       <button class="cat-filter-btn" data-cat="textinitial" onclick="setTodayCatFilter('textinitial')">📖 テキスト</button>
       <button class="cat-filter-btn" data-cat="review" onclick="setTodayCatFilter('review')">🔄 テキスト復習</button>
       <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')">✏️ スマート</button>
       <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
       <button class="cat-filter-btn" data-cat="select" onclick="setTodayCatFilter('select')">🎯 選択式</button>
+    </div>
+
+    <!-- 選択削除モード -->
+    <div id="select-mode-bar" style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+      <button class="btn btn-outline btn-sm" id="select-mode-btn" onclick="toggleSelectMode()">☑ 選択削除モード</button>
+      <span id="select-mode-info" style="font-size:11px;color:var(--text-light);display:none"></span>
+      <button class="btn btn-danger btn-sm" id="select-delete-btn" onclick="deleteSelectedTasks()" style="display:none;margin-left:auto">🗑 選択削除</button>
     </div>
 
     <div id="today-list"></div>
@@ -1803,9 +1813,83 @@ function setTodayCatFilter(cat) {
   loadToday();
 }
 
+// 選択削除モード
+let SELECT_MODE = false;
+let SELECTED_TASK_IDS = new Set(); // task.id を保持
+function toggleSelectMode() {
+  SELECT_MODE = !SELECT_MODE;
+  SELECTED_TASK_IDS.clear();
+  loadToday();
+}
+function toggleTaskSelection(taskId) {
+  taskId = String(taskId);
+  if (SELECTED_TASK_IDS.has(taskId)) SELECTED_TASK_IDS.delete(taskId);
+  else SELECTED_TASK_IDS.add(taskId);
+  updateSelectModeUI();
+}
+function updateSelectModeUI() {
+  const btn = document.getElementById('select-mode-btn');
+  const info = document.getElementById('select-mode-info');
+  const del = document.getElementById('select-delete-btn');
+  if (!btn || !info || !del) return;
+  if (SELECT_MODE) {
+    btn.textContent = '✖ 解除';
+    btn.classList.remove('btn-outline'); btn.classList.add('btn-primary');
+    info.style.display = 'inline'; info.textContent = `${SELECTED_TASK_IDS.size}件選択中`;
+    del.style.display = SELECTED_TASK_IDS.size > 0 ? 'inline-flex' : 'none';
+  } else {
+    btn.textContent = '☑ 選択削除モード';
+    btn.classList.add('btn-outline'); btn.classList.remove('btn-primary');
+    info.style.display = 'none';
+    del.style.display = 'none';
+  }
+}
+function deleteSelectedTasks() {
+  if (SELECTED_TASK_IDS.size === 0) return;
+  if (!confirm(`選択した${SELECTED_TASK_IDS.size}件を削除します。\n復習タスクの場合、紐付く復習項目も削除されます。`)) return;
+  const ts = getViewDate();
+  let tasks = getData('today_' + ts, []);
+  // 復習項目側で削除する ID を収集
+  const reviewItemIdsToRemove = new Set();
+  tasks.forEach(t => {
+    if (SELECTED_TASK_IDS.has(String(t.id))) {
+      if (/^🔄/.test(t.text) && t.reviewItemId != null) reviewItemIdsToRemove.add(t.reviewItemId);
+      if (t.reviewId) reviewItemIdsToRemove.add(t.reviewId);
+    }
+  });
+  // review_items から削除
+  if (reviewItemIdsToRemove.size > 0) {
+    let items = getData('review_items', []);
+    items = items.filter(it => !reviewItemIdsToRemove.has(it.id));
+    setData('review_items', items);
+    // 全 today_* から該当 review 紐付けタスクも削除
+    listTodayKeys().forEach(({ shortKey }) => {
+      const list = getData(shortKey, []);
+      const filtered = list.filter(x => {
+        if (x.reviewItemId != null && reviewItemIdsToRemove.has(x.reviewItemId)) return false;
+        if (x.reviewId != null && reviewItemIdsToRemove.has(x.reviewId)) return false;
+        return true;
+      });
+      if (filtered.length !== list.length) setData(shortKey, filtered);
+    });
+  }
+  // 今日のタスクから選択IDを削除
+  tasks = getData('today_' + ts, []);
+  tasks = tasks.filter(t => !SELECTED_TASK_IDS.has(String(t.id)));
+  setData('today_' + ts, tasks);
+
+  const cnt = SELECTED_TASK_IDS.size;
+  SELECT_MODE = false;
+  SELECTED_TASK_IDS.clear();
+  loadToday();
+  loadReview();
+  showToast(`${cnt}件削除`);
+}
+
 function loadToday() {
   loadGoals();
   loadTimeProgress();
+  updateSelectModeUI();
   const ts = getViewDate();
   const isToday = (ts === todayStr());
   // 期限到来したテキスト復習を今日のタスクに自動追加
@@ -1848,13 +1932,20 @@ function loadToday() {
     const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
     const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
     const isRev = /^🔄/.test(t.text);
-    const checkHTML = isRev
-      ? `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`
-      : `<div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>`;
-    // 削除ボタンは全タスクに表示（復習タスクの場合は今日のリストから消すだけで復習項目は残る）
-    const deleteHTML = `<button class="task-delete" onclick="deleteToday(${i})" title="${isRev ? '今日のリストから消す（復習項目は残る）' : '削除'}">×</button>`;
+    const isSelected = SELECTED_TASK_IDS.has(String(t.id));
+    let checkHTML;
+    if (SELECT_MODE) {
+      checkHTML = `<div class="task-check select-mode ${isSelected ? 'checked' : ''}" onclick="toggleTaskSelection('${t.id}')">${isSelected ? '✓' : ''}</div>`;
+    } else if (isRev) {
+      checkHTML = `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`;
+    } else {
+      checkHTML = `<div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>`;
+    }
+    const deleteHTML = SELECT_MODE
+      ? ''
+      : `<button class="task-delete" onclick="deleteToday(${i})" title="${isRev ? '復習項目ごと削除' : '削除'}">×</button>`;
     const revHint = isRev ? ' <span class="review-badge rb-7d">復習タブで管理</span>' : '';
-    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''}">
+    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''} ${isSelected ? 'selected-task' : ''}">
       ${checkHTML}
       <div class="task-text">
         ${esc(t.text)} ${linked}${revHint}
@@ -2061,22 +2152,10 @@ function toggleToday(idx) {
       const cfg = getItemReviewConfig(reviewItem);
       const alreadyHasInitial = tasks.some(t => t.reviewItemId === reviewItemId && t.reviewIdx === 0);
       const passDone = (reviewItem.completedPasses || [])[0];
-      if (!alreadyHasInitial && !passDone) {
-        const chapter = stripTextReviewPrefix(text);
-        const initialText = `🔄 ${chapter} [初学${shortDate(ts)} / 初回・1/${cfg.passes}回${cfg.label}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
-        tasks.push({
-          text: initialText,
-          subject: subj,
-          done: false,
-          reviewItemId,
-          reviewIdx: 0,
-          mins: TEXT_REVIEW_MIN_PER_PASS,
-          goalKey: 'textinitial',
-          id: Date.now() + Math.random() + 1,
-        });
-        showToast(addedCount > 0 ? '復習登録 + 初回テキスト学習を追加' : '初回テキスト学習を追加');
-      } else if (addedCount > 0) {
-        showToast('テキスト復習に登録');
+      // 動画+テキスト と テキスト復習 は別項目。
+      // 動画✓ では復習項目を登録するのみ (1回目復習は intervalDays 後に出現)
+      if (addedCount > 0) {
+        showToast('動画+テキスト完了 → テキスト復習スケジュール開始');
       }
     }
   } else if (!isReviewTask) {
@@ -2915,7 +2994,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-H');
+  autoBackupOnce('v2026-5-5-I');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
