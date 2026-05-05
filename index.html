@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260427r';
+  const BUILD = '20260505a';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -290,7 +290,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-4-27-R</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-A</div>
   </div>
 </div>
 
@@ -455,7 +455,7 @@ textarea { resize: vertical; min-height: 60px; }
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
       <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')">全て</button>
       <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 基本動画</button>
-      <button class="cat-filter-btn" data-cat="text" onclick="setTodayCatFilter('text')">📖 テキスト</button>
+      <button class="cat-filter-btn" data-cat="review" onclick="setTodayCatFilter('review')">🔄 テキスト復習</button>
       <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')">✏️ スマート</button>
       <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
       <button class="cat-filter-btn" data-cat="select" onclick="setTodayCatFilter('select')">🎯 選択式</button>
@@ -491,15 +491,15 @@ textarea { resize: vertical; min-height: 60px; }
 
     <!-- テキスト復習の自動出現ルール説明 -->
     <div class="card" style="padding:10px 12px">
-      <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px">📖 テキスト復習の自動出現ルール</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px">📖 テキスト復習スケジュール (期限 2026-08-20)</div>
       <div style="font-size:11px;line-height:1.6">
-        1回目(1d): <strong>🔥のみ</strong><br>
-        2回目(3d): <strong>🔥+⭐</strong><br>
-        3回目以降: <strong>「・未設定」と「🔥+⭐」を交互</strong>
+        🔥 重要 (炎): <strong>20回 × 4日おき</strong><br>
+        ⭐ 標準 (★): <strong>15回 × 6日おき</strong><br>
+        ・ その他: <strong>5回 × 17日おき</strong>
       </div>
       <p style="font-size:10px;color:var(--text-light);margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,0.1)">
-        ✏️問題復習・📜条文復習は重要度問わず毎回出現<br>
-        各テキスト復習項目の🔥⭐・ボタンで章ごとの重要度を設定
+        各章の🔥⭐・ボタンで重要度を変更すると、復習回数と次回予定が自動再計算されます<br>
+        期限到来した復習は「今日」タブに自動追加されます
       </p>
     </div>
 
@@ -573,23 +573,33 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="toast" id="toast"></div>
 
-<script src="course-data.js?v=20260427p"></script>
+<script src="course-data.js?v=20260505a"></script>
 <script>
 const EXAM_DATE = new Date('2026-08-23');
+// 旧 REVIEW_INTERVALS（互換用に保持。テキスト復習は importance 別のスケジュールに移行）
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
 const REVIEW_LABELS = ['1日後','3日後','7日後','14日後','30日後'];
-// 復習1パスあたりの想定時間（分）。インデックスは REVIEW_INTERVALS と対応
 const REVIEW_MIN_PER_PASS = [5, 5, 10, 10, 15];
 
-// 130日間の目標設定
+// 新スケジュール（テキスト復習・章単位 importance ベース）
+// critical=🔥(20回×4日おき), high=⭐(15回×6日おき), normal=・(5回×17日おき)
+const TEXT_REVIEW_CONFIG = {
+  critical: { passes: 20, intervalDays: 4, label: '🔥', color: '#ea4335' },
+  high:     { passes: 15, intervalDays: 6, label: '⭐', color: '#d97706' },
+  normal:   { passes: 5,  intervalDays: 17, label: '・', color: '#666' },
+};
+const TEXT_REVIEW_MIN_PER_PASS = 10; // 1回あたり想定 10分
+
+// 期間設定: 全カテゴリ 2026-04-13 開始 → 2026-08-20 完了目標
 const GOAL_START = '2026-04-13';
-const GOAL_DAYS = 130;
+const GOAL_END   = '2026-08-20';
+const GOAL_DAYS  = Math.round((new Date(GOAL_END) - new Date(GOAL_START)) / 86400000) + 1; // 130日
+
 const GOALS = [
-  { key:'video',   icon:'📹', label:'基本動画',     rounds:2,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
-  { key:'text',    icon:'📖', label:'テキスト',     rounds:10, totalUnits:174, minPerUnit:10, dataKey:'kihon',  progKey:'text', uniformTime:true },
-  { key:'smart',   icon:'✏️', label:'スマート問題集', rounds:5, totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
-  { key:'past',    icon:'📝', label:'セレクト過去問',       rounds:10, totalUnits:45, minPerUnit:13, dataKey:'past',   progKey:'past'   },
-  { key:'select',  icon:'🎯', label:'選択式ポイント問題集', rounds:10, totalUnits:44, minPerUnit:14, dataKey:'select', progKey:'select' },
+  { key:'video',   icon:'📹', label:'基本動画',         rounds:2,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
+  { key:'smart',   icon:'✏️', label:'スマート問題集',   rounds:8,  totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
+  { key:'past',    icon:'📝', label:'セレクト過去問',   rounds:8,  totalUnits:45,  minPerUnit:13, dataKey:'past',   progKey:'past'   },
+  { key:'select',  icon:'🎯', label:'選択式ポイント',   rounds:8,  totalUnits:44,  minPerUnit:14, dataKey:'select', progKey:'select' },
 ];
 
 const SUBJECTS = [
@@ -606,9 +616,9 @@ const SUBJECTS = [
 ];
 
 // 1周あたりの講義数。本番の total は rounds 倍した値（試験日までに全rounds周完了が目標）
-// 基本講座×2周, スマート×5周, 過去問×10周, 選択式×10周
+// 基本動画×2周, スマート×8周, 過去問×8周, 選択式×8周（テキスト単体は復習機能に統合）
 const DEFAULT_PROGRESS = {
-  kihon: { label:'基本講座 (×2周)', css:'pcat-lecture', color:'#1a73e8', rounds:2, items: [
+  kihon: { label:'基本動画 (×2周)', css:'pcat-lecture', color:'#1a73e8', rounds:2, items: [
     { id:'koyouhou',name:'雇用保険法',done:0,total:40,perRound:20 },
     { id:'kounenhou',name:'厚生年金保険法',done:0,total:48,perRound:24 },
     { id:'kenpohou',name:'健康保険法',done:0,total:48,perRound:24 },
@@ -620,52 +630,40 @@ const DEFAULT_PROGRESS = {
     { id:'roudou_ippan',name:'労働一般常識',done:0,total:24,perRound:12 },
     { id:'roukihou',name:'労働基準法',done:0,total:40,perRound:20 },
   ]},
-  text: { label:'テキスト (×10周)', css:'pcat-text', color:'#d97706', rounds:10, items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:200,perRound:20 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:240,perRound:24 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:240,perRound:24 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:240,perRound:24 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:100,perRound:10 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:100,perRound:10 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:120,perRound:12 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:180,perRound:18 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:120,perRound:12 },
-    { id:'roukihou',name:'労働基準法',done:0,total:200,perRound:20 },
+  smart: { label:'スマート問題集 (×8周)', css:'pcat-smart', color:'#34a853', rounds:8, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:160,perRound:20 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:192,perRound:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:192,perRound:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:192,perRound:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:80,perRound:10 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:80,perRound:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:96,perRound:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:144,perRound:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:96,perRound:12 },
+    { id:'roukihou',name:'労働基準法',done:0,total:160,perRound:20 },
   ]},
-  smart: { label:'スマート問題集 (×5周)', css:'pcat-smart', color:'#34a853', rounds:5, items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:100,perRound:20 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:120,perRound:24 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:120,perRound:24 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:120,perRound:24 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:50,perRound:10 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:50,perRound:10 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:60,perRound:12 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:90,perRound:18 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:60,perRound:12 },
-    { id:'roukihou',name:'労働基準法',done:0,total:100,perRound:20 },
+  past: { label:'セレクト過去問集 (×8周)', css:'pcat-past', color:'#b5890a', rounds:8, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:40,perRound:5 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:48,perRound:6 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:56,perRound:7 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:56,perRound:7 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:24,perRound:3 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:24,perRound:3 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:32,perRound:4 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:40,perRound:5 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:16,perRound:2 },
+    { id:'roukihou',name:'労働基準法',done:0,total:24,perRound:3 },
   ]},
-  past: { label:'セレクト過去問集 (×10周)', css:'pcat-past', color:'#b5890a', rounds:10, items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:50,perRound:5 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:60,perRound:6 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:70,perRound:7 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:70,perRound:7 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:30,perRound:3 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:30,perRound:3 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:40,perRound:4 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:50,perRound:5 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:20,perRound:2 },
-    { id:'roukihou',name:'労働基準法',done:0,total:30,perRound:3 },
-  ]},
-  select: { label:'選択式ポイント問題集 (×10周)', css:'pcat-select', color:'#ea4335', rounds:10, items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:50,perRound:5 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:60,perRound:6 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:70,perRound:7 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:70,perRound:7 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:30,perRound:3 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:30,perRound:3 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:50,perRound:5 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:50,perRound:5 },
-    { id:'roukihou',name:'労働基準法',done:0,total:40,perRound:4 },
+  select: { label:'選択式ポイント問題集 (×8周)', css:'pcat-select', color:'#ea4335', rounds:8, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:40,perRound:5 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:48,perRound:6 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:56,perRound:7 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:56,perRound:7 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:24,perRound:3 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:24,perRound:3 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:40,perRound:5 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:40,perRound:5 },
+    { id:'roukihou',name:'労働基準法',done:0,total:32,perRound:4 },
   ]},
   summary: { label:'総まとめ講座', css:'pcat-summary', color:'#8b5cf6', rounds:1, items: [
     { id:'roumu',name:'労務管理',done:0,total:4,perRound:4 },
@@ -684,12 +682,19 @@ function getData(k, d) {
 function setData(k, v) { localStorage.setItem('sharoshi_' + k, JSON.stringify(v)); }
 
 // 既存ユーザーの progress_data_v2 の total/perRound を多周対応に更新（done は維持）
+// v2026-5-5-A: text カテゴリを削除（テキスト学習は復習機能に統合）
 function migrateProgressTotals() {
   const raw = localStorage.getItem('sharoshi_progress_data_v2');
-  if (!raw) return; // 初回利用時は DEFAULT_PROGRESS が直接使われる
+  if (!raw) return;
   let data;
   try { data = JSON.parse(raw); } catch { return; }
   let changed = false;
+
+  // 廃止カテゴリの削除
+  ['text', 'summary'].forEach(deprecated => {
+    if (data[deprecated]) { delete data[deprecated]; changed = true; }
+  });
+
   for (const catKey in DEFAULT_PROGRESS) {
     const def = DEFAULT_PROGRESS[catKey];
     if (!data[catKey]) {
@@ -697,7 +702,6 @@ function migrateProgressTotals() {
       changed = true;
       continue;
     }
-    // ラベル/css/color/rounds を最新化
     ['label','css','color','rounds'].forEach(f => {
       if (data[catKey][f] !== def[f]) { data[catKey][f] = def[f]; changed = true; }
     });
@@ -709,10 +713,68 @@ function migrateProgressTotals() {
       } else {
         if (item.total !== defItem.total) { item.total = defItem.total; changed = true; }
         if (item.perRound !== defItem.perRound) { item.perRound = defItem.perRound; changed = true; }
+        // done が新 total を超える場合はクランプ
+        if (item.done > item.total) { item.done = item.total; changed = true; }
       }
     });
   }
   if (changed) setData('progress_data_v2', data);
+}
+
+// v2026-5-5-A: 復習アイテムを章単位 importance ベースに移行
+// - 旧: completedReviews [false×5], completedReviewDates [null×5]
+// - 新: completedPasses は重要度に応じて 5/15/20 件まで対応（dateString or null）
+//   既存の完了済みパス（旧5件）は completedPasses[0..4] に引き継ぎ
+function migrateReviewItems() {
+  const items = getData('review_items', []);
+  if (!items.length) return;
+  let changed = false;
+  items.forEach(it => {
+    if (!Array.isArray(it.completedPasses)) {
+      const oldDone = it.completedReviews || [];
+      const oldDates = it.completedReviewDates || [];
+      it.completedPasses = oldDone.map((d, i) => d ? (oldDates[i] || it.studiedDate || todayStr()) : null);
+      changed = true;
+    }
+    // 📖 テキスト復習以外は今後表示しない（残しておくが非アクティブ扱い）
+    if (it.text && /^✏️\s*問題復習[:：]|^📜\s*条文復習[:：]/.test(it.text)) {
+      if (it.deprecated !== true) { it.deprecated = true; changed = true; }
+    }
+  });
+  if (changed) setData('review_items', items);
+}
+
+// 一度だけ自動バックアップ（BUILD 切替時にダウンロード）
+function autoBackupOnce(buildKey) {
+  const lastBuild = localStorage.getItem('sharoshi_last_backup_build');
+  if (lastBuild === buildKey) return;
+  // データが存在する場合のみダウンロード
+  let hasData = false;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('sharoshi_') && k !== 'sharoshi_last_backup_build') { hasData = true; break; }
+  }
+  if (hasData) {
+    try {
+      const data = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith('sharoshi_')) continue;
+        try { data[k] = JSON.parse(localStorage.getItem(k)); }
+        catch { data[k] = localStorage.getItem(k); }
+      }
+      const blob = new Blob([JSON.stringify({ version:1, build: buildKey, exportedAt: new Date().toISOString(), data }, null, 2)], { type:'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sharoshi-autobackup-${buildKey}-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch(e) { console.warn('autoBackup failed', e); }
+  }
+  localStorage.setItem('sharoshi_last_backup_build', buildKey);
 }
 
 // done が1周分を超えても正しく分数を加算する。done=25, lectures=20 の場合、
@@ -753,20 +815,84 @@ function resolveReviewLink(task) {
   return { itemId: item.id, reviewIdx };
 }
 
-// 完了済み復習パスの合計時間（分）と件数を集計
+// ==== TEXT REVIEW (importance ベース) ====
+// 章の重要度（chapter_importance_v1 を流用）に応じて
+// パス数・間隔・想定時間を返す
+function getItemImportance(item) {
+  if (!item || !item.text) return 'normal';
+  // 既存 chapter_importance_v1 ストアから取得
+  const m = (item.text || '').match(/[:：]?\s*(\S+?)\s*第(\d+)章/);
+  if (m) {
+    const key = `${m[1]}:${m[2]}`;
+    const map = getData('chapter_importance_v1', {});
+    const v = map[key];
+    if (v === 'critical' || v === 'high' || v === 'normal') return v;
+  }
+  // item 自体に importance がある場合（フォールバック）
+  if (item.importance && TEXT_REVIEW_CONFIG[item.importance]) return item.importance;
+  return 'normal';
+}
+function getItemReviewConfig(item) {
+  return TEXT_REVIEW_CONFIG[getItemImportance(item)];
+}
+function isActiveTextReview(item) {
+  if (!item || item.deprecated) return false;
+  // 📖 テキスト復習: ... または autoLinked 由来 / 旧 chapter ベースを許容
+  return /テキスト復習[:：]/.test(item.text || '');
+}
+// 完了済みパス数（completedPasses から）
+function getCompletedPassCount(item) {
+  const arr = item.completedPasses || [];
+  return arr.filter(Boolean).length;
+}
+// 最後に完了したパスの日付（なければ studiedDate）
+function getLastDoneDate(item) {
+  const arr = item.completedPasses || [];
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i]) return arr[i];
+  }
+  return item.studiedDate;
+}
+// 次の復習予定日（全完了なら null）
+function getNextDueDate(item) {
+  const cfg = getItemReviewConfig(item);
+  const doneCount = getCompletedPassCount(item);
+  if (doneCount >= cfg.passes) return null;
+  if (doneCount === 0) return addDays(item.studiedDate, cfg.intervalDays);
+  return addDays(getLastDoneDate(item), cfg.intervalDays);
+}
+// テキスト復習の累計合計分数
 function computeReviewMinutes() {
   const items = getData('review_items', []);
   let totalMin = 0, count = 0;
   items.forEach(it => {
-    const completed = it.completedReviews || [];
-    completed.forEach((done, i) => {
-      if (done) {
-        totalMin += REVIEW_MIN_PER_PASS[i] || 0;
-        count++;
-      }
-    });
+    if (!isActiveTextReview(it)) return;
+    const c = getCompletedPassCount(it);
+    if (c > 0) {
+      totalMin += c * TEXT_REVIEW_MIN_PER_PASS;
+      count += c;
+    }
   });
   return { totalMin, count };
+}
+// テキスト復習の目標合計分数（全アクティブ章 × importance別パス数 × 10分）
+function computeTextReviewTotalMin() {
+  const items = getData('review_items', []);
+  let total = 0, totalPasses = 0, byImp = { critical:0, high:0, normal:0 };
+  items.forEach(it => {
+    if (!isActiveTextReview(it)) return;
+    const cfg = getItemReviewConfig(it);
+    total += cfg.passes * TEXT_REVIEW_MIN_PER_PASS;
+    totalPasses += cfg.passes;
+    byImp[getItemImportance(it)] += 1;
+  });
+  return { totalMin: total, totalPasses, byImp };
+}
+// 「N日前」テキスト用ヘルパー
+function daysSince(dateStr) {
+  if (!dateStr) return 0;
+  const ms = new Date(todayStr()) - new Date(dateStr);
+  return Math.max(0, Math.floor(ms / 86400000));
 }
 function todayStr() { return new Date().toISOString().slice(0,10); }
 function addDays(dateStr, n) {
@@ -994,9 +1120,38 @@ function loadProgressForecast() {
     `);
   });
 
-  // 復習時間も全体実績に加算（教材消化以外の貢献）
+  // テキスト復習（重要度ベース）を pseudo-category として加算
+  const textRev = computeTextReviewTotalMin();
   const review = computeReviewMinutes();
-  totalDone += review.totalMin;
+  if (textRev.totalPasses > 0) {
+    totalNeeded += textRev.totalMin;
+    totalDone += review.totalMin;
+    const pace = review.totalMin / elapsedDays;
+    const projectedTotal = pace * GOAL_DAYS;
+    const projectedPct = textRev.totalMin > 0 ? Math.round(projectedTotal / textRev.totalMin * 100) : 0;
+    const requiredPace = daysRemaining > 0 ? Math.ceil((textRev.totalMin - review.totalMin) / daysRemaining) : 0;
+    const color = projectedPct >= 100 ? 'var(--success)' : (projectedPct >= 70 ? '#d97706' : 'var(--danger)');
+    const barPct = Math.min(100, projectedPct);
+    rows.push(`
+      <div style="padding:6px 4px;border-bottom:1px dashed rgba(0,0,0,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+          <span><strong>📖 テキスト復習</strong>
+            <span style="color:var(--text-light);font-size:10px">🔥${textRev.byImp.critical}・⭐${textRev.byImp.high}・・${textRev.byImp.normal} 章</span>
+          </span>
+          <span style="color:${color};font-weight:700">予測 ${projectedPct}%</span>
+        </div>
+        <div class="progress-bar-wrap" style="width:100%;margin:4px 0">
+          <div class="progress-bar-fill" style="width:${barPct}%;background:${color}"></div>
+        </div>
+        <div style="color:var(--text-light);font-size:10px;display:flex;justify-content:space-between">
+          <span>${review.count}/${textRev.totalPasses}回完了</span>
+          <span>必要${requiredPace}分/日</span>
+        </div>
+      </div>
+    `);
+  } else {
+    totalDone += review.totalMin;
+  }
 
   const overallPace = totalDone / elapsedDays;
   const overallProjected = overallPace * GOAL_DAYS;
@@ -1063,20 +1218,6 @@ function loadProgressForecast() {
     </div>
   `;
 
-  if (review.count > 0) {
-    rows.push(`
-      <div style="padding:6px 4px;border-bottom:1px dashed rgba(0,0,0,0.08)">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
-          <span><strong>🔄 復習</strong> <span style="color:var(--text-light);font-size:10px">${review.count}件完了</span></span>
-          <span style="color:var(--success);font-weight:700">+${Math.round(review.totalMin/60*10)/10}h</span>
-        </div>
-        <div style="color:var(--text-light);font-size:10px;margin-top:2px">
-          想定時間: 1d/3d=5分, 7d/14d=10分, 30d=15分
-        </div>
-      </div>
-    `);
-  }
-
   detailEl.innerHTML = rows.join('');
 }
 
@@ -1088,34 +1229,46 @@ function changeProgress(catKey, idx, delta) {
   loadProgress();
 }
 
-// ==== REVIEW SESSION (used from 復習 tab) ====
-function addReviewTasksToToday() {
-  const ts = todayStr();
-  const tasks = getData('today_' + ts, []);
+// ==== REVIEW SESSION ====
+// 期限到来したテキスト復習を今日のタスクに自動追加
+// 戻り値: 追加件数
+function autoAddDueTextReviews(dateStr) {
+  if (dateStr !== todayStr()) return 0; // 今日以外には自動追加しない
+  const tasks = getData('today_' + dateStr, []);
   const items = getData('review_items', []);
   let count = 0;
-
   items.forEach(item => {
-    const reviews = getReviewInfo(item);
-    reviews.forEach(r => {
-      if (r.status === 'due' || r.status === 'overdue') {
-        const label = `🔄 ${item.text} [${r.label}]`;
-        if (!tasks.find(t => t.text === label)) {
-          tasks.push({
-            text: label,
-            subject: item.subject,
-            done: false,
-            reviewItemId: item.id,
-            reviewIdx: r.idx,
-            id: Date.now() + Math.random() + count
-          });
-          count++;
-        }
-      }
+    if (!isActiveTextReview(item)) return;
+    const cfg = getItemReviewConfig(item);
+    const doneCount = getCompletedPassCount(item);
+    if (doneCount >= cfg.passes) return;
+    const due = getNextDueDate(item);
+    if (!due || due > dateStr) return;
+    // 同じ item の同じ slot が既にあればスキップ
+    const dup = tasks.find(t => t.reviewItemId === item.id && t.reviewIdx === doneCount);
+    if (dup) return;
+    const ago = daysSince(getLastDoneDate(item));
+    const passLabel = `${doneCount + 1}/${cfg.passes}回${cfg.label}`;
+    const text = `🔄 ${item.text} [${ago}日前・${passLabel}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
+    tasks.push({
+      text,
+      subject: item.subject,
+      done: false,
+      reviewItemId: item.id,
+      reviewIdx: doneCount,
+      mins: TEXT_REVIEW_MIN_PER_PASS,
+      goalKey: 'review',
+      id: Date.now() + Math.random() + count,
     });
+    count++;
   });
-
-  setData('today_' + ts, tasks);
+  if (count > 0) setData('today_' + dateStr, tasks);
+  return count;
+}
+// 旧 addReviewTasksToToday（ボタン互換のため呼び出し可能に）
+function addReviewTasksToToday() {
+  const ts = todayStr();
+  const count = autoAddDueTextReviews(ts);
   loadToday();
   showToast(count > 0 ? `復習${count}件を今日に追加` : '今日の復習はありません');
 }
@@ -1630,6 +1783,8 @@ function loadToday() {
   loadTimeProgress();
   const ts = getViewDate();
   const isToday = (ts === todayStr());
+  // 期限到来したテキスト復習を今日のタスクに自動追加
+  if (isToday) autoAddDueTextReviews(ts);
   document.getElementById('today-date').textContent = `${formatDate(ts)} の勉強`;
   const badge = document.getElementById('view-date-badge');
   if (badge) badge.textContent = isToday ? '' : '（過去/未来の日付を表示中）';
@@ -1793,52 +1948,44 @@ function toggleToday(idx) {
       const rItems = getData('review_items', []);
       const rItem = rItems.find(it => it.id === link.itemId);
       if (rItem) {
-        rItem.completedReviews = rItem.completedReviews || [false, false, false, false, false];
-        rItem.completedReviewDates = rItem.completedReviewDates || [null, null, null, null, null];
-        rItem.completedReviews[link.reviewIdx] = tasks[idx].done;
-        rItem.completedReviewDates[link.reviewIdx] = tasks[idx].done ? todayStr() : null;
+        rItem.completedPasses = rItem.completedPasses || [];
+        rItem.completedPasses[link.reviewIdx] = tasks[idx].done ? todayStr() : null;
         setData('review_items', rItems);
-        // 後続トグルが速くなるよう task 側にも保存
         tasks[idx].reviewItemId = link.itemId;
         tasks[idx].reviewIdx = link.reviewIdx;
-        if (tasks[idx].done) showToast(`復習完了: ${REVIEW_LABELS[link.reviewIdx]}`);
+        if (tasks[idx].done) {
+          const cfg = getItemReviewConfig(rItem);
+          showToast(`復習完了: ${link.reviewIdx+1}/${cfg.passes}回${cfg.label}`);
+        }
       }
     }
   }
 
   if (tasks[idx].done) {
     if (!isReviewTask) {
+      // テキスト学習用に章単位のレビュー項目を1件だけ登録（テキスト復習のみ）
       const items = getData('review_items', []);
       const canon = getCanonicalLectureName(tasks[idx]);
       const core = canon || stripTaskLabel(tasks[idx].text);
       const subj = tasks[idx].subject || '';
-      const reviewTypes = [
-        { emoji: '📖', label: 'テキスト復習' },
-        { emoji: '✏️', label: '問題復習' },
-        { emoji: '📜', label: '条文復習' },
-      ];
-
+      const text = `📖 テキスト復習: ${core}`;
+      const existing = items.find(it => it.text === text && !it.deprecated);
       const linkedIds = [];
       let addedCount = 0;
-      reviewTypes.forEach((rt, i) => {
-        const text = `${rt.emoji} ${rt.label}: ${core}`;
-        const existing = items.find(it => it.text === text);
-        if (existing) {
-          linkedIds.push(existing.id);
-        } else {
-          const id = Date.now() + Math.random() + i * 0.0001;
-          items.push({
-            id, text, subject: subj, studiedDate: ts,
-            completedReviews: [false, false, false, false, false], autoLinked: true,
-          });
-          linkedIds.push(id);
-          addedCount++;
-        }
-      });
-
+      if (existing) {
+        linkedIds.push(existing.id);
+      } else {
+        const id = Date.now() + Math.random();
+        items.push({
+          id, text, subject: subj, studiedDate: ts,
+          completedPasses: [], autoLinked: true,
+        });
+        linkedIds.push(id);
+        addedCount++;
+      }
       setData('review_items', items);
       tasks[idx].reviewIds = linkedIds;
-      showToast(addedCount > 0 ? `復習${addedCount}件を登録` : '既存の復習に紐付け');
+      if (addedCount > 0) showToast('テキスト復習に登録');
     }
   } else if (!isReviewTask) {
     // Remove linked review items ONLY if no other completed task references them
@@ -2326,17 +2473,18 @@ function resetAllData() {
 }
 
 function addReviewItem() {
-  const text = document.getElementById('review-add-text').value.trim();
+  const rawText = document.getElementById('review-add-text').value.trim();
   const subject = document.getElementById('review-add-subject').value;
   const date = document.getElementById('review-add-date').value || todayStr();
-  if (!text || !subject) { showToast('内容と科目を入力してください'); return; }
-
+  if (!rawText || !subject) { showToast('内容と科目を入力してください'); return; }
+  // 統一形式に正規化
+  const text = /^📖\s*テキスト復習[:：]/.test(rawText) ? rawText : `📖 テキスト復習: ${rawText}`;
   const items = getData('review_items', []);
   items.push({
     id: Date.now(),
     text, subject,
     studiedDate: date,
-    completedReviews: [false, false, false, false, false],
+    completedPasses: [],
   });
   setData('review_items', items);
   document.getElementById('review-add-text').value = '';
@@ -2349,9 +2497,9 @@ function addReviewItem() {
 // Storage: chapter_importance_v1 = { "科目short:章番号": 'critical'|'high'|'normal' }
 // Lookup: parse review item text like "📖 テキスト復習: 雇用 第1章 総則..." → "雇用:1"
 const IMPORTANCE_LABEL = {
-  critical: '🔥特★★★★★',
-  high: '⭐★★★以上',
-  normal: '・',
+  critical: '🔥×20回',
+  high: '⭐×15回',
+  normal: '・×5回',
   unset: '',
 };
 
@@ -2364,9 +2512,10 @@ function getChapterKey(itemText) {
 
 function getImportance(itemText) {
   const key = getChapterKey(itemText);
-  if (!key) return 'unset';
+  if (!key) return 'normal';
   const map = getData('chapter_importance_v1', {});
-  return map[key] || 'unset';
+  const v = map[key];
+  return (v === 'critical' || v === 'high' || v === 'normal') ? v : 'normal';
 }
 
 function setImportanceForItem(itemId, level) {
@@ -2380,6 +2529,8 @@ function setImportanceForItem(itemId, level) {
   else map[key] = level;
   setData('chapter_importance_v1', map);
   loadReview();
+  if (typeof loadToday === 'function') loadToday();
+  showToast(`重要度を${TEXT_REVIEW_CONFIG[level]?.label || '・'}に設定`);
 }
 
 function isTextReview(itemText) {
@@ -2414,71 +2565,59 @@ function passImportanceOK(itemText, passIdx) {
   return allowed.includes(imp);
 }
 
-// Compute due date for pass N based on previous pass's actual completion date
-// Pass 0: studiedDate + interval[0]
-// Pass N>=1: previous_completion + interval[N]  (if prev completed)
-//           fallback to studiedDate + interval[N] (legacy items without dates)
+// Compute due date for pass N（importance に応じた間隔）
+// Pass 0: studiedDate + interval
+// Pass N>=1: previous_completion + interval（未完了なら推定: studiedDate + (N+1)*interval）
 function getPassDueDate(item, passIdx) {
-  if (passIdx === 0) {
-    return addDays(item.studiedDate, REVIEW_INTERVALS[0]);
-  }
-  const prevCompleted = (item.completedReviewDates || [])[passIdx - 1];
-  if (prevCompleted) {
-    return addDays(prevCompleted, REVIEW_INTERVALS[passIdx]);
-  }
-  return addDays(item.studiedDate, REVIEW_INTERVALS[passIdx]);
+  const cfg = getItemReviewConfig(item);
+  if (passIdx === 0) return addDays(item.studiedDate, cfg.intervalDays);
+  const prevCompleted = (item.completedPasses || [])[passIdx - 1];
+  if (prevCompleted) return addDays(prevCompleted, cfg.intervalDays);
+  return addDays(item.studiedDate, cfg.intervalDays * (passIdx + 1));
 }
 
+// importance ベースで全パスのステータスを返す
 function getReviewInfo(item) {
+  const cfg = getItemReviewConfig(item);
   const result = [];
-  REVIEW_INTERVALS.forEach((interval, i) => {
+  const today = todayStr();
+  for (let i = 0; i < cfg.passes; i++) {
     const dueDate = getPassDueDate(item, i);
-    const today = todayStr();
+    const completed = (item.completedPasses || [])[i];
     let status;
-    if (item.completedReviews[i]) status = 'done';
+    if (completed) status = 'done';
     else if (dueDate < today) status = 'overdue';
     else if (dueDate === today) status = 'due';
     else status = 'upcoming';
-    result.push({ interval, label: REVIEW_LABELS[i], dueDate, idx: i, status });
-  });
+    result.push({ interval: cfg.intervalDays, label: `${i+1}回目`, dueDate, idx: i, status });
+  }
   return result;
 }
 
 function toggleReviewDone(itemId, reviewIdx) {
   const items = getData('review_items', []);
   const item = items.find(it => it.id === itemId);
-  if (item) {
-    item.completedReviews[reviewIdx] = !item.completedReviews[reviewIdx];
-    item.completedReviewDates = item.completedReviewDates || [null, null, null, null, null];
-    if (item.completedReviews[reviewIdx]) {
-      item.completedReviewDates[reviewIdx] = todayStr();
-    } else {
-      item.completedReviewDates[reviewIdx] = null;
-    }
-    setData('review_items', items);
+  if (!item) return;
+  item.completedPasses = item.completedPasses || [];
+  const wasDone = !!item.completedPasses[reviewIdx];
+  item.completedPasses[reviewIdx] = wasDone ? null : todayStr();
+  setData('review_items', items);
 
-    // 全 today_<date> から対応する 🔄 タスクを探して同期
-    const expectedLabel = `🔄 ${item.text} [${REVIEW_LABELS[reviewIdx]}]`;
-    listTodayKeys().forEach(({ shortKey }) => {
-      const tasks = getData(shortKey, []);
-      let changed = false;
-      tasks.forEach(t => {
-        const matchById = (t.reviewItemId === itemId && t.reviewIdx === reviewIdx);
-        const matchByText = (t.text === expectedLabel);
-        if (matchById || matchByText) {
-          if (t.done !== item.completedReviews[reviewIdx]) {
-            t.done = item.completedReviews[reviewIdx];
-            changed = true;
-          }
-        }
-      });
-      if (changed) setData(shortKey, tasks);
+  // 全 today_<date> から対応する 🔄 タスクを探して同期
+  listTodayKeys().forEach(({ shortKey }) => {
+    const tasks = getData(shortKey, []);
+    let changed = false;
+    tasks.forEach(t => {
+      if (t.reviewItemId === itemId && t.reviewIdx === reviewIdx) {
+        const newDone = !wasDone;
+        if (t.done !== newDone) { t.done = newDone; changed = true; }
+      }
     });
+    if (changed) setData(shortKey, tasks);
+  });
 
-    loadReview();
-    // 今日タブが既に描画されている場合は時間表示も更新
-    if (typeof loadToday === 'function') loadToday();
-  }
+  loadReview();
+  if (typeof loadToday === 'function') loadToday();
 }
 
 function deleteReviewItem(itemId) {
@@ -2491,25 +2630,25 @@ function deleteReviewItem(itemId) {
 }
 
 function loadReview() {
-  const items = getData('review_items', []);
+  const allItems = getData('review_items', []);
+  const items = allItems.filter(isActiveTextReview);
   const today = todayStr();
   const next7 = addDays(today, 7);
 
-  // Today's due + overdue
+  // 各アイテムについて「次の未完了パス」だけを表示（連続表示で見にくくならないよう）
   const dueToday = [];
   const upcoming = [];
-
   items.forEach(item => {
-    const reviews = getReviewInfo(item);
-    reviews.forEach(r => {
-      // Apply per-pass importance filter for text reviews
-      if (!passImportanceOK(item.text, r.idx)) return;
-      if (r.status === 'due' || r.status === 'overdue') {
-        dueToday.push({ item, review: r });
-      } else if (r.status === 'upcoming' && r.dueDate <= next7) {
-        upcoming.push({ item, review: r });
-      }
-    });
+    const cfg = getItemReviewConfig(item);
+    const doneCount = getCompletedPassCount(item);
+    if (doneCount >= cfg.passes) return;
+    const dueDate = getNextDueDate(item);
+    const r = { idx: doneCount, label: `${doneCount+1}/${cfg.passes}回${cfg.label}`, dueDate, interval: cfg.intervalDays };
+    if (dueDate <= today) {
+      r.status = 'due'; dueToday.push({ item, review: r });
+    } else if (dueDate <= next7) {
+      r.status = 'upcoming'; upcoming.push({ item, review: r });
+    }
   });
 
   // Helper to render importance badge + setter buttons (only for テキスト復習)
@@ -2522,10 +2661,9 @@ function loadReview() {
     if (!isTextReview(text)) return '';
     const cur = getImportance(text);
     const levels = [
-      { k: 'critical', l: '🔥' },
-      { k: 'high', l: '⭐' },
-      { k: 'normal', l: '・' },
-      { k: 'unset', l: '✖' },
+      { k: 'critical', l: '🔥20回' },
+      { k: 'high', l: '⭐15回' },
+      { k: 'normal', l: '・5回' },
     ];
     return `<div class="imp-set-row">${levels.map(lv =>
       `<button class="imp-set-btn ${cur === lv.k ? 'active' : ''}" onclick="setImportanceForItem(${itemId},'${lv.k}')">${lv.l}</button>`
@@ -2543,12 +2681,14 @@ function loadReview() {
   } else {
     dueArea.innerHTML = dueToday.map(({ item, review }) => {
       const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
-      const isOverdue = review.status === 'overdue';
+      const isOverdue = review.dueDate < today;
+      const ago = daysSince(getLastDoneDate(item));
       return `<div class="task-item review-due-today">
         <div class="task-check" onclick="toggleReviewDone(${item.id},${review.idx})"></div>
         <div class="task-text">
           ${esc(item.text)}${impBadge(item.text)}
-          <span class="review-badge rb-${review.interval}d">${review.label}</span>
+          <span class="review-badge rb-1d">${review.label}</span>
+          <span class="review-badge rb-3d">${ago}日前</span>
           ${isOverdue ? `<span class="review-overdue">期限超過</span>` : ''}
           <div class="task-subj">${sn} | 学習: ${formatDate(item.studiedDate)}</div>
           ${impSetter(item.id, item.text)}
@@ -2562,12 +2702,13 @@ function loadReview() {
   if (upcoming.length === 0) {
     upArea.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px;font-size:12px">7日以内の復習予定はありません</p></div>';
   } else {
+    upcoming.sort((a, b) => a.review.dueDate.localeCompare(b.review.dueDate));
     upArea.innerHTML = upcoming.slice(0, 20).map(({ item, review }) => {
       const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
       return `<div class="task-item review-upcoming">
         <div class="task-text">
           ${esc(item.text)}${impBadge(item.text)}
-          <span class="review-badge rb-${review.interval}d">${review.label}</span>
+          <span class="review-badge rb-7d">${review.label}</span>
           <div class="task-subj">${sn} | ${formatDate(review.dueDate)}</div>
         </div>
       </div>`;
@@ -2579,23 +2720,27 @@ function loadReview() {
   if (items.length === 0) {
     allArea.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px;font-size:12px">学習記録なし</p></div>';
   } else {
-    // Sort by studied date desc
-    const sorted = [...items].sort((a, b) => b.studiedDate.localeCompare(a.studiedDate));
+    const sorted = [...items].sort((a, b) => (b.studiedDate||'').localeCompare(a.studiedDate||''));
     allArea.innerHTML = sorted.map(item => {
       const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
-      const reviews = getReviewInfo(item);
-      const doneCount = reviews.filter(r => r.status === 'done').length;
-      const dots = reviews.map(r => {
-        const color = r.status === 'done' ? 'var(--success)' :
-                      r.status === 'due' ? 'var(--danger)' :
-                      r.status === 'overdue' ? 'var(--danger)' : 'var(--border)';
-        return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin:0 2px"></span>`;
-      }).join('');
+      const cfg = getItemReviewConfig(item);
+      const doneCount = getCompletedPassCount(item);
+      const passes = cfg.passes;
+      // 上限15個までドット表示（多すぎる場合は数字のみ）
+      let dots = '';
+      if (passes <= 20) {
+        for (let i = 0; i < passes; i++) {
+          const completed = (item.completedPasses || [])[i];
+          const isNext = (i === doneCount);
+          const color = completed ? 'var(--success)' : (isNext ? 'var(--danger)' : 'var(--border)');
+          dots += `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin:0 1px"></span>`;
+        }
+      }
       return `<div class="card" style="padding:10px 12px;margin-bottom:6px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:600">${esc(item.text)}${impBadge(item.text)}</div>
-            <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} | ${formatDate(item.studiedDate)} | 復習 ${doneCount}/5</div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} | ${formatDate(item.studiedDate)} | 復習 ${doneCount}/${passes}回 (${cfg.label})</div>
             <div style="margin-top:4px">${dots}</div>
             ${impSetter(item.id, item.text)}
           </div>
@@ -2623,8 +2768,12 @@ document.addEventListener('click', e => {
 
 // ==== INIT ====
 function init() {
+  // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
+  autoBackupOnce('v2026-5-5-A');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
+  // 復習データを新フォーマット (completedPasses) に移行
+  migrateReviewItems();
 
   // Countdown
   const today = new Date();
