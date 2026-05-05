@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505d';
+  const BUILD = '20260505e';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -208,6 +208,9 @@ textarea { resize: vertical; min-height: 60px; }
   font-size: 14px; color: white;
 }
 .task-check.checked { background: var(--success); border-color: var(--success); }
+.task-check.readonly { cursor: not-allowed; opacity: 0.65; pointer-events: none; background: #eee; border-style: dashed; font-size: 10px; color: #888; }
+.task-check.readonly.checked { background: var(--success); border-color: var(--success); border-style: solid; opacity: 1; color: white; font-size: 14px; }
+.task-item.readonly-task { background: #f8f9ff; }
 .task-text { flex: 1; font-size: 14px; min-width: 0; }
 .task-subj { font-size: 11px; color: var(--text-light); margin-top: 2px; }
 .task-delete { display: none; }
@@ -290,7 +293,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-D</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-E</div>
   </div>
 </div>
 
@@ -1832,13 +1835,20 @@ function loadToday() {
       const i = originalIdx;
       const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
       const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
-      return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''}">
-        <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>
+      // 復習タスク（🔄 で始まる）はチェック・削除を無効化（復習タブで管理）
+      const isRev = /^🔄/.test(t.text);
+      const checkHTML = isRev
+        ? `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`
+        : `<div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>`;
+      const deleteHTML = isRev ? '' : `<button class="task-delete" onclick="deleteToday(${i})">×</button>`;
+      const revHint = isRev ? ' <span class="review-badge rb-7d">復習タブで管理</span>' : '';
+      return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''}">
+        ${checkHTML}
         <div class="task-text">
-          ${esc(t.text)} ${linked}
+          ${esc(t.text)} ${linked}${revHint}
           ${sn ? `<div class="task-subj">${sn}</div>` : ''}
         </div>
-        <button class="task-delete" onclick="deleteToday(${i})">×</button>
+        ${deleteHTML}
       </div>`;
     }).join('');
   }
@@ -1933,6 +1943,11 @@ function toggleToday(idx) {
   const ts = getViewDate();
   const tasks = getData('today_' + ts, []);
   if (!tasks[idx]) return;
+  // 復習タスクは復習タブから操作するため、今日タブ側のチェックは無効
+  if (/^🔄/.test(tasks[idx].text)) {
+    showToast('復習タブから操作してください');
+    return;
+  }
 
   tasks[idx].done = !tasks[idx].done;
 
@@ -2815,7 +2830,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-D');
+  autoBackupOnce('v2026-5-5-E');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
