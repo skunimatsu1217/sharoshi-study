@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505f';
+  const BUILD = '20260505g';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -293,7 +293,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-F</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-G</div>
   </div>
 </div>
 
@@ -457,7 +457,8 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- カテゴリフィルタ -->
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
       <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')">全て</button>
-      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 動画+テキスト</button>
+      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 基本動画</button>
+      <button class="cat-filter-btn" data-cat="textinitial" onclick="setTodayCatFilter('textinitial')">📖 テキスト</button>
       <button class="cat-filter-btn" data-cat="review" onclick="setTodayCatFilter('review')">🔄 テキスト復習</button>
       <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')">✏️ スマート</button>
       <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
@@ -1816,41 +1817,69 @@ function loadToday() {
     btn.classList.toggle('active', btn.dataset.cat === TODAY_CAT_FILTER);
   });
 
-  // Apply category filter then sort: undone first, done last, preserving order
+  // カテゴリフィルタ適用 + セクション別グルーピング
   const filteredIndexed = rawTasks
     .map((t, originalIdx) => ({ t, originalIdx }))
     .filter(({ t }) => TODAY_CAT_FILTER === 'all' || t.goalKey === TODAY_CAT_FILTER);
 
-  const sortedIndexed = [
-    ...filteredIndexed.filter(({ t }) => !t.done),
-    ...filteredIndexed.filter(({ t }) => t.done),
+  // セクション定義（表示順）
+  const SECTIONS = [
+    { key:'video',       label:'📹 基本動画+テキスト' },
+    { key:'textinitial', label:'📖 テキスト学習(初回)' },
+    { key:'review',      label:'🔄 テキスト復習' },
+    { key:'smart',       label:'✏️ スマート問題集' },
+    { key:'past',        label:'📝 セレクト過去問' },
+    { key:'select',      label:'🎯 選択式ポイント' },
+    { key:'_other',      label:'📝 その他' },
   ];
+  const buckets = {};
+  SECTIONS.forEach(s => buckets[s.key] = []);
+  filteredIndexed.forEach(({ t, originalIdx }) => {
+    const k = t.goalKey && buckets[t.goalKey] ? t.goalKey : '_other';
+    buckets[k].push({ t, originalIdx });
+  });
 
-  if (sortedIndexed.length === 0) {
+  const renderTask = ({ t, originalIdx }) => {
+    const i = originalIdx;
+    const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
+    const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
+    const isRev = /^🔄/.test(t.text);
+    const checkHTML = isRev
+      ? `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`
+      : `<div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>`;
+    const deleteHTML = isRev ? '' : `<button class="task-delete" onclick="deleteToday(${i})">×</button>`;
+    const revHint = isRev ? ' <span class="review-badge rb-7d">復習タブで管理</span>' : '';
+    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''}">
+      ${checkHTML}
+      <div class="task-text">
+        ${esc(t.text)} ${linked}${revHint}
+        ${sn ? `<div class="task-subj">${sn}</div>` : ''}
+      </div>
+      ${deleteHTML}
+    </div>`;
+  };
+
+  if (filteredIndexed.length === 0) {
     area.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px">' +
       (rawTasks.length === 0 ? '勉強内容を追加しましょう' : '該当カテゴリのタスクはありません') +
       '</p></div>';
   } else {
-    area.innerHTML = sortedIndexed.map(({ t, originalIdx }) => {
-      const i = originalIdx;
-      const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
-      const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
-      // 復習タスク（🔄 で始まる）はチェック・削除を無効化（復習タブで管理）
-      const isRev = /^🔄/.test(t.text);
-      const checkHTML = isRev
-        ? `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`
-        : `<div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>`;
-      const deleteHTML = isRev ? '' : `<button class="task-delete" onclick="deleteToday(${i})">×</button>`;
-      const revHint = isRev ? ' <span class="review-badge rb-7d">復習タブで管理</span>' : '';
-      return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''}">
-        ${checkHTML}
-        <div class="task-text">
-          ${esc(t.text)} ${linked}${revHint}
-          ${sn ? `<div class="task-subj">${sn}</div>` : ''}
+    const html = SECTIONS.map(sec => {
+      const list = buckets[sec.key];
+      if (!list.length) return '';
+      const undone = list.filter(({ t }) => !t.done);
+      const done = list.filter(({ t }) => t.done);
+      const sorted = [...undone, ...done];
+      return `
+        <div style="margin-top:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">
+            ${sec.label} <span style="opacity:0.7">(${done.length}/${list.length})</span>
+          </div>
+          ${sorted.map(renderTask).join('')}
         </div>
-        ${deleteHTML}
-      </div>`;
+      `;
     }).join('');
+    area.innerHTML = html;
   }
 
   const tasks = rawTasks;
@@ -2037,7 +2066,7 @@ function toggleToday(idx) {
           reviewItemId,
           reviewIdx: 0,
           mins: TEXT_REVIEW_MIN_PER_PASS,
-          goalKey: 'review',
+          goalKey: 'textinitial',
           id: Date.now() + Math.random() + 1,
         });
         showToast(addedCount > 0 ? '復習登録 + 初回テキスト学習を追加' : '初回テキスト学習を追加');
@@ -2830,7 +2859,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-F');
+  autoBackupOnce('v2026-5-5-G');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
