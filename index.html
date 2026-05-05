@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505e';
+  const BUILD = '20260505f';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -293,7 +293,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-E</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-F</div>
   </div>
 </div>
 
@@ -301,7 +301,7 @@ textarea { resize: vertical; min-height: 60px; }
   <button class="tab-btn active" data-tab="today">今日</button>
   <button class="tab-btn" data-tab="progress">進捗</button>
   <button class="tab-btn" data-tab="review">復習</button>
-  <button class="tab-btn" data-tab="flashcard">単語帳</button>
+  <button class="tab-btn" data-tab="flashcard" style="display:none">単語帳</button>
 </div>
 
 <div class="content">
@@ -457,7 +457,7 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- カテゴリフィルタ -->
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
       <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')">全て</button>
-      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 基本動画</button>
+      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 動画+テキスト</button>
       <button class="cat-filter-btn" data-cat="review" onclick="setTodayCatFilter('review')">🔄 テキスト復習</button>
       <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')">✏️ スマート</button>
       <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
@@ -599,7 +599,7 @@ const GOAL_END   = '2026-08-20';
 const GOAL_DAYS  = Math.round((new Date(GOAL_END) - new Date(GOAL_START)) / 86400000) + 1; // 130日
 
 const GOALS = [
-  { key:'video',   icon:'📹', label:'基本動画',         rounds:2,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
+  { key:'video',   icon:'📹', label:'基本動画+テキスト', rounds:2,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
   { key:'smart',   icon:'✏️', label:'スマート問題集',   rounds:8,  totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
   { key:'past',    icon:'📝', label:'セレクト過去問',   rounds:7,  totalUnits:45,  minPerUnit:13, dataKey:'past',   progKey:'past'   },
   { key:'select',  icon:'🎯', label:'選択式ポイント',   rounds:10, totalUnits:44,  minPerUnit:14, dataKey:'select', progKey:'select' },
@@ -621,7 +621,7 @@ const SUBJECTS = [
 // 1周あたりの講義数。本番の total は rounds 倍した値（試験日までに全rounds周完了が目標）
 // 基本動画×2周, スマート×8周, 過去問×8周, 選択式×8周（テキスト単体は復習機能に統合）
 const DEFAULT_PROGRESS = {
-  kihon: { label:'基本動画 (×2周)', css:'pcat-lecture', color:'#1a73e8', rounds:2, items: [
+  kihon: { label:'基本動画+テキスト (×2周)', css:'pcat-lecture', color:'#1a73e8', rounds:2, items: [
     { id:'koyouhou',name:'雇用保険法',done:0,total:40,perRound:20 },
     { id:'kounenhou',name:'厚生年金保険法',done:0,total:48,perRound:24 },
     { id:'kenpohou',name:'健康保険法',done:0,total:48,perRound:24 },
@@ -2830,7 +2830,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-E');
+  autoBackupOnce('v2026-5-5-F');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
