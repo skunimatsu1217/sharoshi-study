@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260505c';
+  const BUILD = '20260505d';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -290,7 +290,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-C</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-5-D</div>
   </div>
 </div>
 
@@ -1230,10 +1230,21 @@ function changeProgress(catKey, idx, delta) {
 }
 
 // ==== REVIEW SESSION ====
-// 期限到来したテキスト復習を今日のタスクに自動追加
-// 戻り値: 追加件数
+// "📖 テキスト復習: 雇用 第1章 総則" → "雇用 第1章 総則" を取り出し
+function stripTextReviewPrefix(t) {
+  return (t || '').replace(/^📖\s*テキスト復習[:：]\s*/, '');
+}
+// "2026-05-05" → "5/5(月)"
+function shortDate(s) {
+  if (!s) return '?';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  const days = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
+}
+// 期限到来したテキスト復習を今日のタスクに自動追加。戻り値: 追加件数
 function autoAddDueTextReviews(dateStr) {
-  if (dateStr !== todayStr()) return 0; // 今日以外には自動追加しない
+  if (dateStr !== todayStr()) return 0;
   const tasks = getData('today_' + dateStr, []);
   const items = getData('review_items', []);
   let count = 0;
@@ -1244,12 +1255,18 @@ function autoAddDueTextReviews(dateStr) {
     if (doneCount >= cfg.passes) return;
     const due = getNextDueDate(item);
     if (!due || due > dateStr) return;
-    // 同じ item の同じ slot が既にあればスキップ
     const dup = tasks.find(t => t.reviewItemId === item.id && t.reviewIdx === doneCount);
     if (dup) return;
-    const ago = daysSince(getLastDoneDate(item));
+    const chapter = stripTextReviewPrefix(item.text);
     const passLabel = `${doneCount + 1}/${cfg.passes}回${cfg.label}`;
-    const text = `🔄 ${item.text} [${ago}日前・${passLabel}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
+    // 初学日 + 前回日（あれば）+ N日前 + N回目
+    const studied = shortDate(item.studiedDate);
+    const lastDate = doneCount === 0 ? null : getLastDoneDate(item);
+    const ago = daysSince(getLastDoneDate(item));
+    const dateInfo = lastDate
+      ? `初学${studied} / 前回${shortDate(lastDate)}(${ago}日前)`
+      : `初学${studied}(${ago}日前)`;
+    const text = `🔄 ${chapter} [${dateInfo} / ${passLabel}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
     tasks.push({
       text,
       subject: item.subject,
@@ -1996,7 +2013,8 @@ function toggleToday(idx) {
       const alreadyHasInitial = tasks.some(t => t.reviewItemId === reviewItemId && t.reviewIdx === 0);
       const passDone = (reviewItem.completedPasses || [])[0];
       if (!alreadyHasInitial && !passDone) {
-        const initialText = `🔄 ${text} [初回・1/${cfg.passes}回${cfg.label}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
+        const chapter = stripTextReviewPrefix(text);
+        const initialText = `🔄 ${chapter} [初学${shortDate(ts)} / 初回・1/${cfg.passes}回${cfg.label}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
         tasks.push({
           text: initialText,
           subject: subj,
@@ -2707,15 +2725,18 @@ function loadReview() {
     dueArea.innerHTML = dueToday.map(({ item, review }) => {
       const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
       const isOverdue = review.dueDate < today;
+      const lastDone = review.idx === 0 ? null : getLastDoneDate(item);
       const ago = daysSince(getLastDoneDate(item));
+      const dateLine = lastDone
+        ? `初学: ${shortDate(item.studiedDate)} / 前回: ${shortDate(lastDone)}（${ago}日前）`
+        : `初学: ${shortDate(item.studiedDate)}（${ago}日前）`;
       return `<div class="task-item review-due-today">
         <div class="task-check" onclick="toggleReviewDone(${item.id},${review.idx})"></div>
         <div class="task-text">
           ${esc(item.text)}${impBadge(item.text)}
           <span class="review-badge rb-1d">${review.label}</span>
-          <span class="review-badge rb-3d">${ago}日前</span>
           ${isOverdue ? `<span class="review-overdue">期限超過</span>` : ''}
-          <div class="task-subj">${sn} | 学習: ${formatDate(item.studiedDate)}</div>
+          <div class="task-subj">${sn} | ${dateLine}</div>
           ${impSetter(item.id, item.text)}
         </div>
       </div>`;
@@ -2794,7 +2815,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-5-C');
+  autoBackupOnce('v2026-5-5-D');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
