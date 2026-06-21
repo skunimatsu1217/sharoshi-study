@@ -2910,6 +2910,9 @@ function loadReview() {
   // Sort upcoming by date
   upcoming.sort((a, b) => a.review.dueDate.localeCompare(b.review.dueDate));
 
+  // 今日やるべき復習: 復習回数が少ない順（1/20 を 5/20 より上に。同回数は期限が早い順）
+  dueToday.sort((a, b) => (a.review.idx - b.review.idx) || a.review.dueDate.localeCompare(b.review.dueDate));
+
   // Render due today
   const dueArea = document.getElementById('review-today-list');
   document.getElementById('review-today-label').textContent = `今日やるべき復習（${dueToday.length}件）`;
