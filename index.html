@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621i';
+  const BUILD = '20260621j';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-I</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-J</div>
   </div>
 </div>
 
@@ -1418,6 +1418,27 @@ function autoAddDueTextReviews(dateStr) {
     return true;
   });
 
+  // 例外表示: 今日完了した復習パスを「✅ 今日終えた復習」として残す（通常は完了後に消えるため）
+  items.forEach(item => {
+    if (!isActiveTextReview(item)) return;
+    const cfg = getItemReviewConfig(item);
+    (item.completedPasses || []).forEach((d, idx) => {
+      if (d !== dateStr) return; // 今日完了したパスのみ
+      const chapter = stripTextReviewPrefix(item.text);
+      tasks.push({
+        text: `🔄 ${chapter} [✓ ${idx + 1}/${cfg.passes}回${cfg.label} 完了] (${TEXT_REVIEW_MIN_PER_PASS}分)`,
+        subject: item.subject,
+        done: true,
+        reviewItemId: item.id,
+        reviewIdx: idx,
+        mins: TEXT_REVIEW_MIN_PER_PASS,
+        goalKey: 'donetoday',
+        completedToday: true,
+        id: Date.now() + Math.random() + 0.7 + idx,
+      });
+    });
+  });
+
   setData('today_' + dateStr, tasks);
   return count;
 }
@@ -2052,6 +2073,7 @@ function loadToday() {
     { key:'past',        label:'📝 セレクト過去問' },
     { key:'select',      label:'🎯 選択式ポイント' },
     { key:'_other',      label:'📝 その他' },
+    { key:'donetoday',   label:'✅ 今日終えた復習' },
   ];
   const buckets = {};
   SECTIONS.forEach(s => buckets[s.key] = []);
@@ -2139,6 +2161,7 @@ function loadToday() {
     const TIER2 = ['past', 'select', '_other'];
     const tier1 = SECTIONS.filter(s => TIER1.includes(s.key)).map(renderSection).join('');
     const tier2 = SECTIONS.filter(s => TIER2.includes(s.key)).map(renderSection).join('');
+    const doneTodayHtml = renderSection(SECTIONS.find(s => s.key === 'donetoday'));
     const tierBlock = (label, inner) => inner ? `
       <div style="margin-top:14px">
         <div style="font-size:12px;font-weight:800;color:var(--primary);padding:6px 10px;background:linear-gradient(135deg,#e8f0fe,#f3e8fd);border-radius:6px;margin-bottom:4px">${label}</div>
@@ -2146,7 +2169,8 @@ function loadToday() {
       </div>` : '';
     area.innerHTML =
       tierBlock('① インプット（動画・テキスト＋スマート問題集）', tier1) +
-      tierBlock('② アウトプット（過去問・選択式）', tier2);
+      tierBlock('② アウトプット（過去問・選択式）', tier2) +
+      doneTodayHtml;
   }
 
   const tasks = rawTasks;
@@ -3285,7 +3309,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-I');
+  autoBackupOnce('v2026-6-21-J');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
