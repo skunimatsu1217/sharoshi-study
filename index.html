@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621b';
+  const BUILD = '20260621c';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-B</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-C</div>
   </div>
 </div>
 
@@ -459,10 +459,10 @@ textarea { resize: vertical; min-height: 60px; }
 
     <!-- カテゴリフィルタ -->
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-      <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')">全て</button>
+      <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')" style="display:none">全て</button>
       <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 動画+テキスト</button>
       <button class="cat-filter-btn" data-cat="textinitial" onclick="setTodayCatFilter('textinitial')">📖 テキスト：復習+スマート</button>
-      <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')">✏️ スマート</button>
+      <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')" style="display:none">✏️ スマート</button>
       <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
       <button class="cat-filter-btn" data-cat="select" onclick="setTodayCatFilter('select')">🎯 選択式</button>
     </div>
@@ -2001,12 +2001,30 @@ function loadToday() {
       '</p></div>';
   } else {
     const html = SECTIONS.map(sec => {
+      if (sec.key === 'smart') return ''; // 標準のスマート問題集セクションは非表示
       const list = buckets[sec.key];
       if (!list.length) return '';
-      // テキスト：復習＋スマートは「復習→スマート」のペア順を保つため並べ替えない
       const undone = list.filter(({ t }) => !t.done);
       const done = list.filter(({ t }) => t.done);
-      const sorted = sec.key === 'textinitial' ? list : [...undone, ...done];
+      let sorted;
+      if (sec.key === 'textinitial') {
+        // 復習を試行回数(reviewIdx)の少ない＝習熟度が低い順に。スマート問題集は対応復習の直下を維持
+        const reviews = list.filter(({ t }) => /^🔄/.test(t.text))
+          .sort((a, b) => ((a.t.reviewIdx || 0) - (b.t.reviewIdx || 0)));
+        const companions = list.filter(({ t }) => t.smartPair);
+        const placed = new Set();
+        sorted = [];
+        reviews.forEach(r => {
+          sorted.push(r); placed.add(r);
+          const c = companions.find(c => !placed.has(c)
+            && c.t.pairedReviewItemId === r.t.reviewItemId && c.t.reviewIdx === r.t.reviewIdx);
+          if (c) { sorted.push(c); placed.add(c); }
+        });
+        // ペア相手のいない残り（孤立スマート・その他）は末尾へ
+        list.forEach(x => { if (!placed.has(x)) sorted.push(x); });
+      } else {
+        sorted = [...undone, ...done];
+      }
       return `
         <div style="margin-top:10px">
           <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">
@@ -3051,7 +3069,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-B');
+  autoBackupOnce('v2026-6-21-C');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
