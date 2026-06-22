@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621j';
+  const BUILD = '20260621k';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-J</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-K</div>
   </div>
 </div>
 
@@ -1353,22 +1353,33 @@ function autoAddDueTextReviews(dateStr) {
   items.forEach(item => {
     if (!isActiveTextReview(item)) return;
     const cfg = getItemReviewConfig(item);
-    const doneCount = getCompletedPassCount(item);
-    if (doneCount >= cfg.passes) return;
-    const due = getNextDueDate(item);
-    if (!due) return; // 全パス完了
-    // 未着手(doneCount=0)かつ予定日がまだ来ていない項目だけ非表示。
-    // 一度でも開始した項目は間隔を待たず次のパスを継続表示する（直前期の周回用）。
-    if (due > dateStr && doneCount === 0) return;
-    // ユーザーが今日のリストから消した分は再追加しない
-    if (dismissed.includes(`${item.id}:${doneCount}`)) return;
+    const cps = item.completedPasses || [];
+    const doneCount = cps.filter(Boolean).length;
+
+    // 今日完了したパスがあるか（あれば「その場に完了表示」して消えないようにする）
+    let showIdx, showDone;
+    const todayIdx = cps.reduce((acc, d, i) => (d === dateStr ? i : acc), -1); // 今日完了した最後のパス
+    if (todayIdx >= 0) {
+      showIdx = todayIdx;     // 今日やったパスを完了状態でその場に残す（次のパスは翌日表示）
+      showDone = true;
+    } else {
+      // 今日未完了 → 現在のパスを表示
+      if (doneCount >= cfg.passes) return;            // 全パス完了済み
+      const due = getNextDueDate(item);
+      if (!due) return;
+      // 未着手(doneCount=0)かつ予定日が未到来のものだけ非表示。開始済みは継続表示。
+      if (due > dateStr && doneCount === 0) return;
+      if (dismissed.includes(`${item.id}:${doneCount}`)) return;
+      showIdx = doneCount;
+      showDone = !!reviewDone[`${item.id}:${doneCount}`];
+    }
     activeItemIds.add(item.id);
 
-    // --- 復習タスク（現在の完了回数でラベルを再計算）---
+    // --- 復習タスク ---
     const chapter = stripTextReviewPrefix(item.text);
-    const passLabel = `${doneCount + 1}/${cfg.passes}回${cfg.label}`;
+    const passLabel = `${showIdx + 1}/${cfg.passes}回${cfg.label}`;
     const studied = shortDate(item.studiedDate);
-    const lastDate = doneCount === 0 ? null : getLastDoneDate(item);
+    const lastDate = showIdx === 0 ? null : getLastDoneDate(item);
     const ago = daysSince(getLastDoneDate(item));
     const dateInfo = lastDate
       ? `初学${studied} / 前回${shortDate(lastDate)}(${ago}日前)`
@@ -1377,9 +1388,9 @@ function autoAddDueTextReviews(dateStr) {
     tasks.push({
       text,
       subject: item.subject,
-      done: !!reviewDone[`${item.id}:${doneCount}`],
+      done: showDone,
       reviewItemId: item.id,
-      reviewIdx: doneCount,
+      reviewIdx: showIdx,
       mins: TEXT_REVIEW_MIN_PER_PASS,
       goalKey: 'textinitial',
       id: Date.now() + Math.random() + count,
@@ -1416,27 +1427,6 @@ function autoAddDueTextReviews(dateStr) {
     if (seenSmart.has(t.pairedReviewItemId)) return false;
     seenSmart.add(t.pairedReviewItemId);
     return true;
-  });
-
-  // 例外表示: 今日完了した復習パスを「✅ 今日終えた復習」として残す（通常は完了後に消えるため）
-  items.forEach(item => {
-    if (!isActiveTextReview(item)) return;
-    const cfg = getItemReviewConfig(item);
-    (item.completedPasses || []).forEach((d, idx) => {
-      if (d !== dateStr) return; // 今日完了したパスのみ
-      const chapter = stripTextReviewPrefix(item.text);
-      tasks.push({
-        text: `🔄 ${chapter} [✓ ${idx + 1}/${cfg.passes}回${cfg.label} 完了] (${TEXT_REVIEW_MIN_PER_PASS}分)`,
-        subject: item.subject,
-        done: true,
-        reviewItemId: item.id,
-        reviewIdx: idx,
-        mins: TEXT_REVIEW_MIN_PER_PASS,
-        goalKey: 'donetoday',
-        completedToday: true,
-        id: Date.now() + Math.random() + 0.7 + idx,
-      });
-    });
   });
 
   setData('today_' + dateStr, tasks);
@@ -3309,7 +3299,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-J');
+  autoBackupOnce('v2026-6-21-K');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
