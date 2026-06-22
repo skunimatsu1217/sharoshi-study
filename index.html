@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621g';
+  const BUILD = '20260621h';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-G</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-H</div>
   </div>
 </div>
 
@@ -537,7 +537,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div id="chokuzen" class="tab-content">
     <div class="card" style="background:linear-gradient(135deg,#fff1f2,#fef3c7)">
       <div style="font-size:14px;font-weight:700;color:#b45309;margin-bottom:4px">🔥 試験直前期</div>
-      <div style="font-size:12px;color:var(--text-light);line-height:1.6">開始目安：7月中旬〜。総まとめ講座とまるごと過去問集を仕上げる時期です。</div>
+      <div style="font-size:12px;color:var(--text-light);line-height:1.6">開始目安：7月中旬〜。まるごと過去問集＋総まとめ講座を<strong>各3周</strong>で仕上げます。各行の①②③が周回です。</div>
       <div id="chokuzen-progress" style="margin-top:8px;font-size:12px;font-weight:700"></div>
     </div>
     <div id="chokuzen-list"></div>
@@ -642,6 +642,10 @@ const SUBJECTS = [
   { id:'roudou_ippan', name:'労働一般常識', short:'労一' },
   { id:'roukihou', name:'労働基準法', short:'労基' },
 ];
+
+// 試験直前期: まるごと過去問集［2026年合格目標］ PDFより。各エントリ = [種別(S=選択式/T=択一式), 年度, 分, 問数]
+const MARUGOTO_DATA = {"roukihou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,21,7],["T",2021,21,7],["T",2022,21,7],["T",2023,21,7],["T",2024,21,7]],"aneihou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,9,3],["T",2021,9,3],["T",2022,9,3],["T",2023,9,3],["T",2024,9,3]],"rousaihou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,21,7],["T",2021,21,7],["T",2022,21,7],["T",2023,21,7],["T",2024,21,7]],"koyouhou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,21,7],["T",2021,21,7],["T",2022,21,7],["T",2023,21,7],["T",2024,21,7]],"choushuuhou":[["T",2020,18,6],["T",2021,18,6],["T",2022,18,6],["T",2023,18,6],["T",2024,18,6]],"roudou_ippan":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,12,4],["T",2021,12,4],["T",2022,12,4],["T",2023,12,4],["T",2024,12,4]],"kenpohou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,30,10],["T",2021,30,10],["T",2022,30,10],["T",2023,30,10],["T",2024,30,10]],"kokunenhou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,30,10],["T",2021,30,10],["T",2022,30,10],["T",2023,30,10],["T",2024,30,10]],"kounenhou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,30,10],["T",2021,30,10],["T",2022,30,10],["T",2023,30,10],["T",2024,30,10]],"shakai_ippan":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,18,6],["T",2021,18,6],["T",2022,18,6],["T",2023,18,6],["T",2024,18,6]]};
+const MARUGOTO_ROUNDS = 3; // 3周
 
 // 1周あたりの講義数。本番の total は rounds 倍した値（試験日までに全rounds周完了が目標）
 // 基本動画×2周, スマート×8周, 過去問×8周, 選択式×8周（テキスト単体は復習機能に統合）
@@ -3145,35 +3149,50 @@ function loadReview() {
   }
 }
 
-// ==== 試験直前期 (総まとめ講座 + まるごと過去問集) ====
-// 完了状態は chokuzen_v1 = { itemKey: true } で保持
+// ==== 試験直前期 (まるごと過去問集 + 総まとめ講座 を各3周) ====
+// 完了状態は chokuzen_v1 = { "<itemKey>#<round>": true } で保持
+const CHOKUZEN_ROUNDS = MARUGOTO_ROUNDS; // 3周
+
 function buildChokuzenSections() {
   const cd = (typeof COURSE_DATA !== 'undefined') ? COURSE_DATA : {};
+  const sections = [];
+
+  // --- まるごと過去問集（科目別） ---
+  SUBJECTS.forEach(s => {
+    const rows = (MARUGOTO_DATA[s.id] || []).map((e, idx) => {
+      const [t, year, mins, q] = e;
+      const typeLabel = t === 'S' ? '選択式' : '択一式';
+      return { key: `mg:${s.id}:${idx}`, label: `${typeLabel} ${year}年度（${q}問・${mins}分）` };
+    });
+    if (rows.length) sections.push({ group: 'まるごと過去問集', title: `📚 ${s.name}`, items: rows });
+  });
+
+  // --- 総まとめ講座 ---
   const fromData = (key, prefix) => (cd[key] ? Object.keys(cd[key]).map(k => {
     const e = cd[key][k];
     const title = Array.isArray(e) ? e[0] : e;
     const mins = Array.isArray(e) ? e[1] : null;
-    return { key: `${prefix}:${k}`, label: title + (mins ? ` (${mins}分)` : '') };
+    return { key: `${prefix}:${k}`, label: title + (mins ? `（${mins}分）` : '') };
   }) : []);
-  const sections = [
-    { title: '📘 総まとめ講座（労務管理・社会保障制度・計算）', items: fromData('summary', 'sum') },
+  [
+    { title: '📘 総まとめ（労務管理・社会保障制度・計算）', items: fromData('summary', 'sum') },
     { title: '🔀 横断整理', items: fromData('oudan', 'oud') },
     { title: '📝 今日のまとめ（科目別）', items: fromData('matome', 'mat') },
-    { title: '📚 まるごと過去問集［2026年合格目標］（科目別）',
-      items: SUBJECTS.map(s => ({ key: `maru:${s.id}`, label: s.name })) },
-  ];
-  return sections.filter(sec => sec.items.length > 0);
+  ].forEach(sec => { if (sec.items.length) sections.push({ group: '総まとめ講座', ...sec }); });
+
+  return sections;
 }
 
-function toggleChokuzen(key) {
+function toggleChokuzen(key, round) {
   const done = getData('chokuzen_v1', {});
-  if (done[key]) delete done[key]; else done[key] = true;
+  const k = `${key}#${round}`;
+  if (done[k]) delete done[k]; else done[k] = true;
   setData('chokuzen_v1', done);
   loadChokuzen();
 }
 
 function resetChokuzen() {
-  if (!confirm('試験直前期のチェックを全てリセットします。よろしいですか？')) return;
+  if (!confirm('試験直前期のチェック（全周）をリセットします。よろしいですか？')) return;
   setData('chokuzen_v1', {});
   loadChokuzen();
 }
@@ -3181,28 +3200,57 @@ function resetChokuzen() {
 function loadChokuzen() {
   const sections = buildChokuzenSections();
   const done = getData('chokuzen_v1', {});
+  const R = CHOKUZEN_ROUNDS;
   let total = 0, doneCount = 0;
+  const groupDone = {}, groupTotal = {};
+
+  const roundDots = (key) => {
+    let h = '<div style="display:flex;gap:4px;flex-shrink:0">';
+    for (let r = 1; r <= R; r++) {
+      const on = !!done[`${key}#${r}`];
+      h += `<button onclick="toggleChokuzen('${key}',${r})" title="${r}周目"
+        style="width:24px;height:24px;border-radius:50%;border:1.5px solid ${on ? 'var(--success)' : 'var(--border)'};
+        background:${on ? 'var(--success)' : '#fff'};color:${on ? '#fff' : 'var(--text-light)'};
+        font-size:11px;font-weight:700;cursor:pointer;padding:0">${r}</button>`;
+    }
+    return h + '</div>';
+  };
+
+  let lastGroup = null;
   const html = sections.map(sec => {
+    let groupHeader = '';
+    if (sec.group !== lastGroup) {
+      lastGroup = sec.group;
+      groupHeader = `<div style="margin-top:16px;font-size:13px;font-weight:800;color:var(--primary);padding:6px 10px;background:linear-gradient(135deg,#fff1f2,#fef3c7);border-radius:6px">${sec.group}（${R}周）</div>`;
+    }
     const rows = sec.items.map(it => {
-      total++;
-      const isDone = !!done[it.key];
-      if (isDone) doneCount++;
-      return `<div class="task-item ${isDone ? 'done' : ''}">
-        <div class="task-check ${isDone ? 'checked' : ''}" onclick="toggleChokuzen('${it.key}')">${isDone ? '✓' : ''}</div>
-        <div class="task-text">${esc(it.label)}</div>
+      total += R;
+      groupTotal[sec.group] = (groupTotal[sec.group] || 0) + R;
+      let d = 0;
+      for (let r = 1; r <= R; r++) if (done[`${it.key}#${r}`]) d++;
+      doneCount += d;
+      groupDone[sec.group] = (groupDone[sec.group] || 0) + d;
+      return `<div class="task-item ${d >= R ? 'done' : ''}" style="align-items:center">
+        <div class="task-text" style="flex:1">${esc(it.label)}</div>
+        ${roundDots(it.key)}
       </div>`;
     }).join('');
-    const secDone = sec.items.filter(it => done[it.key]).length;
-    return `<div style="margin-top:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">
-        ${sec.title} <span style="opacity:0.7">(${secDone}/${sec.items.length})</span>
-      </div>${rows}</div>`;
+    const secDone = sec.items.reduce((a, it) => { for (let r = 1; r <= R; r++) if (done[`${it.key}#${r}`]) a++; return a; }, 0);
+    return `${groupHeader}
+      <div style="margin-top:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">
+          ${sec.title} <span style="opacity:0.7">(${secDone}/${sec.items.length * R})</span>
+        </div>${rows}</div>`;
   }).join('');
+
   const listEl = document.getElementById('chokuzen-list');
   if (listEl) listEl.innerHTML = html;
   const pct = total === 0 ? 0 : Math.round(doneCount / total * 100);
   const progEl = document.getElementById('chokuzen-progress');
-  if (progEl) progEl.textContent = `完了 ${doneCount} / ${total}（${pct}%）`;
+  if (progEl) {
+    const parts = Object.keys(groupTotal).map(g => `${g} ${groupDone[g] || 0}/${groupTotal[g]}`);
+    progEl.innerHTML = `全体 ${doneCount} / ${total}（${pct}%）<div style="font-weight:400;color:var(--text-light);font-size:11px;margin-top:2px">${parts.join(' ／ ')}</div>`;
+  }
 }
 
 // ==== Swipe ====
@@ -3223,7 +3271,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-G');
+  autoBackupOnce('v2026-6-21-H');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
