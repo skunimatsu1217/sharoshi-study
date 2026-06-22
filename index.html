@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621h';
+  const BUILD = '20260621i';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-H</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-I</div>
   </div>
 </div>
 
@@ -1340,15 +1340,15 @@ function autoAddDueTextReviews(dateStr) {
   const items = getData('review_items', []);
   const dismissed = getData('dismissed_' + dateStr, []);
 
-  // 既存の復習タスク／連動スマートのチェック状態を保持し、一旦すべて除去して再生成する。
-  // （重複・古いラベル・未連動を毎回クリーンに作り直すため）
-  const reviewDone = {}, smartDone = {};
+  // 復習(🔄)タスクのみ毎回再生成（回数ラベル更新のため）。チェック状態は保持。
+  // スマート連動タスクは復習とは独立して保持する（テキストとスマートを別々にチェックできるように）。
+  const reviewDone = {};
   tasks.forEach(t => {
     if (/^🔄/.test(t.text) && t.reviewItemId != null) reviewDone[`${t.reviewItemId}:${t.reviewIdx}`] = t.done;
-    if (t.smartPair && t.pairedReviewItemId != null) smartDone[`${t.pairedReviewItemId}:${t.reviewIdx}`] = t.done;
   });
-  tasks = tasks.filter(t => !/^🔄/.test(t.text) && !t.smartPair);
+  tasks = tasks.filter(t => !/^🔄/.test(t.text)); // スマート連動(smartPair)はそのまま残す
 
+  const activeItemIds = new Set();
   let count = 0;
   items.forEach(item => {
     if (!isActiveTextReview(item)) return;
@@ -1362,6 +1362,7 @@ function autoAddDueTextReviews(dateStr) {
     if (due > dateStr && doneCount === 0) return;
     // ユーザーが今日のリストから消した分は再追加しない
     if (dismissed.includes(`${item.id}:${doneCount}`)) return;
+    activeItemIds.add(item.id);
 
     // --- 復習タスク（現在の完了回数でラベルを再計算）---
     const chapter = stripTextReviewPrefix(item.text);
@@ -1385,25 +1386,38 @@ function autoAddDueTextReviews(dateStr) {
     });
     count++;
 
-    // --- 連動スマート問題集（章番号でマッチ）を直下に配置 ---
-    const chNum = extractChapterNum(item.text);
-    const smartList = (typeof COURSE_DATA !== 'undefined' && COURSE_DATA.smart && COURSE_DATA.smart[item.subject]) || [];
-    const smartCh = chNum != null ? smartList.find(e => e[0] === chNum) : null;
-    if (smartCh) {
-      const [snum, stitle, smins] = smartCh;
-      tasks.push({
-        text: `✏️ スマート問題集 第${snum}章${stitle ? ' ' + stitle : ''} (${smins}分)`,
-        subject: item.subject,
-        done: !!smartDone[`${item.id}:${doneCount}`],
-        smartPair: true,
-        pairedReviewItemId: item.id,
-        reviewIdx: doneCount,
-        goalKey: 'textinitial',
-        mins: smins,
-        id: Date.now() + Math.random() + count + 0.5,
-      });
+    // --- 連動スマート問題集（章単位で1つ・独立）。無ければ作る。既存のチェック状態は保持 ---
+    const hasSmart = tasks.some(t => t.smartPair && t.pairedReviewItemId === item.id);
+    if (!hasSmart) {
+      const chNum = extractChapterNum(item.text);
+      const smartList = (typeof COURSE_DATA !== 'undefined' && COURSE_DATA.smart && COURSE_DATA.smart[item.subject]) || [];
+      const smartCh = chNum != null ? smartList.find(e => e[0] === chNum) : null;
+      if (smartCh) {
+        const [snum, stitle, smins] = smartCh;
+        tasks.push({
+          text: `✏️ スマート問題集 第${snum}章${stitle ? ' ' + stitle : ''} (${smins}分)`,
+          subject: item.subject,
+          done: false,
+          smartPair: true,
+          pairedReviewItemId: item.id,
+          goalKey: 'textinitial',
+          mins: smins,
+          id: Date.now() + Math.random() + count + 0.5,
+        });
+      }
     }
   });
+
+  // 非アクティブ章のスマート連動を除去＋同一章の重複スマートを1つに整理
+  const seenSmart = new Set();
+  tasks = tasks.filter(t => {
+    if (!t.smartPair) return true;
+    if (!activeItemIds.has(t.pairedReviewItemId)) return false;
+    if (seenSmart.has(t.pairedReviewItemId)) return false;
+    seenSmart.add(t.pairedReviewItemId);
+    return true;
+  });
+
   setData('today_' + dateStr, tasks);
   return count;
 }
@@ -2103,7 +2117,7 @@ function loadToday() {
         reviews.forEach(r => {
           sorted.push(r); placed.add(r);
           const c = companions.find(c => !placed.has(c)
-            && c.t.pairedReviewItemId === r.t.reviewItemId && c.t.reviewIdx === r.t.reviewIdx);
+            && c.t.pairedReviewItemId === r.t.reviewItemId);
           if (c) { sorted.push(c); placed.add(c); }
         });
         // ペア相手のいない残り（孤立スマート・その他）は末尾へ
@@ -3271,7 +3285,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-H');
+  autoBackupOnce('v2026-6-21-I');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
