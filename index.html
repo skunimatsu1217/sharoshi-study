@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260506a';
+  const BUILD = '20260621b';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,14 +296,14 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-5-6-A</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-B</div>
   </div>
 </div>
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
-  <button class="tab-btn" data-tab="progress">進捗</button>
-  <button class="tab-btn" data-tab="review">復習</button>
+  <button class="tab-btn" data-tab="progress" style="display:none">進捗</button>
+  <button class="tab-btn" data-tab="review" style="display:none">復習</button>
   <button class="tab-btn" data-tab="flashcard" style="display:none">単語帳</button>
 </div>
 
@@ -461,7 +461,7 @@ textarea { resize: vertical; min-height: 60px; }
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
       <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')">全て</button>
       <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 動画+テキスト</button>
-      <button class="cat-filter-btn" data-cat="textinitial" onclick="setTodayCatFilter('textinitial')">📖 テキスト</button>
+      <button class="cat-filter-btn" data-cat="textinitial" onclick="setTodayCatFilter('textinitial')">📖 テキスト：復習+スマート</button>
       <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')">✏️ スマート</button>
       <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
       <button class="cat-filter-btn" data-cat="select" onclick="setTodayCatFilter('select')">🎯 選択式</button>
@@ -1295,6 +1295,28 @@ function autoAddDueTextReviews(dateStr) {
       id: Date.now() + Math.random() + count,
     });
     count++;
+
+    // ペアのスマート問題集（同じ章番号）を復習項目の直下に連動配置
+    const chNum = (item.text.match(/第(\d+)章/) || [])[1];
+    const smartList = (typeof COURSE_DATA !== 'undefined' && COURSE_DATA.smart && COURSE_DATA.smart[item.subject]) || [];
+    const smartCh = chNum ? smartList.find(e => e[0] === Number(chNum)) : null;
+    if (smartCh) {
+      const [snum, stitle, smins] = smartCh;
+      const dupS = tasks.find(t => t.smartPair && t.pairedReviewItemId === item.id && t.reviewIdx === doneCount);
+      if (!dupS) {
+        tasks.push({
+          text: `✏️ スマート問題集 第${snum}章${stitle ? ' ' + stitle : ''} (${smins}分)`,
+          subject: item.subject,
+          done: false,
+          smartPair: true,
+          pairedReviewItemId: item.id,
+          reviewIdx: doneCount,
+          goalKey: 'textinitial',
+          mins: smins,
+          id: Date.now() + Math.random() + count + 0.5,
+        });
+      }
+    }
   });
   if (count > 0) setData('today_' + dateStr, tasks);
   return count;
@@ -1925,7 +1947,7 @@ function loadToday() {
   // セクション定義（表示順）
   const SECTIONS = [
     { key:'video',       label:'📹 基本動画+テキスト' },
-    { key:'textinitial', label:'📖 テキスト復習 (今日やるべき・復習タブで管理)' },
+    { key:'textinitial', label:'📖 テキスト：復習＋スマート問題集' },
     { key:'smart',       label:'✏️ スマート問題集' },
     { key:'past',        label:'📝 セレクト過去問' },
     { key:'select',      label:'🎯 選択式ポイント' },
@@ -1945,22 +1967,25 @@ function loadToday() {
     const sn = t.subject ? (SUBJECTS.find(s => s.id === t.subject)?.short || '') : '';
     const linked = (t.reviewIds?.length || t.reviewId) ? '<span class="review-badge rb-1d">復習登録済</span>' : '';
     const isRev = /^🔄/.test(t.text);
+    const isSmartPair = !!t.smartPair;
     const isSelected = SELECTED_TASK_IDS.has(String(tid));
     let checkHTML;
     if (SELECT_MODE) {
       checkHTML = `<div class="task-check select-mode ${isSelected ? 'checked' : ''}">${isSelected ? '✓' : ''}</div>`;
-    } else if (isRev) {
-      checkHTML = `<div class="task-check readonly ${t.done ? 'checked' : ''}" title="復習タブで管理">${t.done ? '✓' : '🔒'}</div>`;
     } else {
       checkHTML = `<div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleToday(${i})">${t.done ? '✓' : ''}</div>`;
     }
     const deleteHTML = SELECT_MODE
       ? ''
       : `<button class="task-delete" onclick="deleteToday(${i})" title="${isRev ? '復習項目ごと削除' : '削除'}">×</button>`;
-    const revHint = isRev ? ' <span class="review-badge rb-7d">復習タブで管理</span>' : '';
+    const revHint = isRev ? ' <span class="review-badge rb-1d">復習</span>' : '';
+    // スマート問題集の連動タスクは復習項目の下にインデント表示
+    const pairStyle = isSmartPair ? 'margin-left:18px;border-left:2px solid var(--success)' : '';
     // 選択モードでは行全体をクリック可能に
-    const rowOnclick = SELECT_MODE ? `onclick="toggleTaskSelection('${tid}')" style="cursor:pointer"` : '';
-    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isRev ? 'readonly-task' : ''} ${isSelected ? 'selected-task' : ''}" ${rowOnclick}>
+    const rowOnclick = SELECT_MODE
+      ? `onclick="toggleTaskSelection('${tid}')" style="cursor:pointer;${pairStyle}"`
+      : (pairStyle ? `style="${pairStyle}"` : '');
+    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isSelected ? 'selected-task' : ''}" ${rowOnclick}>
       ${checkHTML}
       <div class="task-text">
         ${esc(t.text)} ${linked}${revHint}
@@ -1978,9 +2003,10 @@ function loadToday() {
     const html = SECTIONS.map(sec => {
       const list = buckets[sec.key];
       if (!list.length) return '';
+      // テキスト：復習＋スマートは「復習→スマート」のペア順を保つため並べ替えない
       const undone = list.filter(({ t }) => !t.done);
       const done = list.filter(({ t }) => t.done);
-      const sorted = [...undone, ...done];
+      const sorted = sec.key === 'textinitial' ? list : [...undone, ...done];
       return `
         <div style="margin-top:10px">
           <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">
@@ -2083,9 +2109,21 @@ function toggleToday(idx) {
   const ts = getViewDate();
   const tasks = getData('today_' + ts, []);
   if (!tasks[idx]) return;
-  // 復習タスクは復習タブから操作するため、今日タブ側のチェックは無効
-  if (/^🔄/.test(tasks[idx].text)) {
-    showToast('復習タブから操作してください');
+
+  // スマート問題集の連動タスク（テキスト復習とペア）: スマート進捗を ±1
+  if (tasks[idx].smartPair) {
+    tasks[idx].done = !tasks[idx].done;
+    const prog = getData('progress_data_v2', DEFAULT_PROGRESS);
+    const sm = prog.smart;
+    const it = sm && sm.items.find(x => x.id === tasks[idx].subject);
+    if (it) {
+      if (tasks[idx].done) it.done = Math.min(it.total, (it.done || 0) + 1);
+      else it.done = Math.max(0, (it.done || 0) - 1);
+      setData('progress_data_v2', prog);
+    }
+    setData('today_' + ts, tasks);
+    if (tasks[idx].done) showToast('スマート問題集 完了');
+    loadToday();
     return;
   }
 
@@ -2231,6 +2269,7 @@ function deleteToday(idx) {
         if (x.reviewItemId === removedReviewId) return false;
         if (Array.isArray(x.reviewIds) && x.reviewIds.includes(removedReviewId)) return false;
         if (x.reviewId === removedReviewId) return false;
+        if (x.smartPair && x.pairedReviewItemId === removedReviewId) return false; // ペアのスマート問題集も削除
         return true;
       });
       if (filtered.length !== list.length) setData(shortKey, filtered);
@@ -3012,7 +3051,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-5-6-A');
+  autoBackupOnce('v2026-6-21-B');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
