@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621d';
+  const BUILD = '20260621e';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-D</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-E</div>
   </div>
 </div>
 
@@ -1256,14 +1256,82 @@ function shortDate(s) {
   const days = ['日','月','火','水','木','金','土'];
   return `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
 }
+// 復習項目テキストから章番号を抽出（第N章 / 基本動画N / スマート問題集N など複数形式に対応）
+function extractChapterNum(text) {
+  const s = text || '';
+  let m = s.match(/第\s*(\d+)\s*章/); if (m) return Number(m[1]);
+  m = s.match(/基本動画\s*(\d+)/); if (m) return Number(m[1]);
+  m = s.match(/(?:スマート問題集|テキスト|セレクト過去問|選択式ポイント問題集|問題集)\s*(\d+)/); if (m) return Number(m[1]);
+  return null;
+}
+
+// 同一章の重複した復習項目を1つに統合（完了パスは合算）。今日タスクの参照も付け替え。
+function autoDedupReviewItems() {
+  const items = getData('review_items', []);
+  if (items.length < 2) return;
+  const groups = {};
+  const order = [];
+  items.forEach(it => {
+    if (it.deprecated || !isActiveTextReview(it)) { const k = '__keep__' + it.id; groups[k] = [it]; order.push(k); return; }
+    const chap = extractChapterNum(it.text);
+    const key = chap != null ? `${it.subject || ''}|${chap}` : `t|${(it.text || '').replace(/\s+/g, '')}`;
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(it);
+  });
+  let changed = false;
+  const idMap = {};
+  const survivors = [];
+  order.forEach(key => {
+    const group = groups[key];
+    group.sort((a, b) => ((a.studiedDate || '').localeCompare(b.studiedDate || '')) || (a.id - b.id));
+    const keeper = group[0];
+    if (group.length > 1) {
+      // 完了パス（日付）を全件集めて昇順に詰め直す＝進捗を合算
+      const dates = [];
+      group.forEach(g => (g.completedPasses || []).forEach(d => { if (d) dates.push(d); }));
+      dates.sort();
+      keeper.completedPasses = dates;
+      group.forEach(g => { idMap[g.id] = keeper.id; });
+      changed = true;
+    } else {
+      idMap[keeper.id] = keeper.id;
+    }
+    survivors.push(keeper);
+  });
+  if (!changed) return;
+  setData('review_items', survivors);
+  listTodayKeys().forEach(({ shortKey }) => {
+    const list = getData(shortKey, []);
+    let ch = false;
+    list.forEach(t => {
+      ['reviewItemId', 'pairedReviewItemId', 'reviewId'].forEach(f => {
+        if (t[f] != null && idMap[t[f]] != null && idMap[t[f]] !== t[f]) { t[f] = idMap[t[f]]; ch = true; }
+      });
+    });
+    if (ch) setData(shortKey, list);
+  });
+}
+
 // 期限到来したテキスト復習を今日のタスクに自動追加。戻り値: 追加件数
 function autoAddDueTextReviews(dateStr) {
   if (dateStr !== todayStr()) return 0;
-  const tasks = getData('today_' + dateStr, []);
+  // 重複した復習項目を先に統合（同一章を1つにまとめ、進捗合算）
+  autoDedupReviewItems();
+
+  let tasks = getData('today_' + dateStr, []);
   const items = getData('review_items', []);
   const dismissed = getData('dismissed_' + dateStr, []);
+
+  // 既存の復習タスク／連動スマートのチェック状態を保持し、一旦すべて除去して再生成する。
+  // （重複・古いラベル・未連動を毎回クリーンに作り直すため）
+  const reviewDone = {}, smartDone = {};
+  tasks.forEach(t => {
+    if (/^🔄/.test(t.text) && t.reviewItemId != null) reviewDone[`${t.reviewItemId}:${t.reviewIdx}`] = t.done;
+    if (t.smartPair && t.pairedReviewItemId != null) smartDone[`${t.pairedReviewItemId}:${t.reviewIdx}`] = t.done;
+  });
+  tasks = tasks.filter(t => !/^🔄/.test(t.text) && !t.smartPair);
+
   let count = 0;
-  let changed = false;
   items.forEach(item => {
     if (!isActiveTextReview(item)) return;
     const cfg = getItemReviewConfig(item);
@@ -1274,57 +1342,48 @@ function autoAddDueTextReviews(dateStr) {
     // ユーザーが今日のリストから消した分は再追加しない
     if (dismissed.includes(`${item.id}:${doneCount}`)) return;
 
-    // --- 復習タスク（既にあればスキップ）---
-    const dup = tasks.find(t => t.reviewItemId === item.id && t.reviewIdx === doneCount);
-    if (!dup) {
-      const chapter = stripTextReviewPrefix(item.text);
-      const passLabel = `${doneCount + 1}/${cfg.passes}回${cfg.label}`;
-      // 初学日 + 前回日（あれば）+ N日前 + N回目
-      const studied = shortDate(item.studiedDate);
-      const lastDate = doneCount === 0 ? null : getLastDoneDate(item);
-      const ago = daysSince(getLastDoneDate(item));
-      const dateInfo = lastDate
-        ? `初学${studied} / 前回${shortDate(lastDate)}(${ago}日前)`
-        : `初学${studied}(${ago}日前)`;
-      const text = `🔄 ${chapter} [${dateInfo} / ${passLabel}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
-      tasks.push({
-        text,
-        subject: item.subject,
-        done: false,
-        reviewItemId: item.id,
-        reviewIdx: doneCount,
-        mins: TEXT_REVIEW_MIN_PER_PASS,
-        goalKey: 'textinitial',
-        id: Date.now() + Math.random() + count,
-      });
-      count++;
-      changed = true;
-    }
+    // --- 復習タスク（現在の完了回数でラベルを再計算）---
+    const chapter = stripTextReviewPrefix(item.text);
+    const passLabel = `${doneCount + 1}/${cfg.passes}回${cfg.label}`;
+    const studied = shortDate(item.studiedDate);
+    const lastDate = doneCount === 0 ? null : getLastDoneDate(item);
+    const ago = daysSince(getLastDoneDate(item));
+    const dateInfo = lastDate
+      ? `初学${studied} / 前回${shortDate(lastDate)}(${ago}日前)`
+      : `初学${studied}(${ago}日前)`;
+    const text = `🔄 ${chapter} [${dateInfo} / ${passLabel}] (${TEXT_REVIEW_MIN_PER_PASS}分)`;
+    tasks.push({
+      text,
+      subject: item.subject,
+      done: !!reviewDone[`${item.id}:${doneCount}`],
+      reviewItemId: item.id,
+      reviewIdx: doneCount,
+      mins: TEXT_REVIEW_MIN_PER_PASS,
+      goalKey: 'textinitial',
+      id: Date.now() + Math.random() + count,
+    });
+    count++;
 
-    // --- ペアのスマート問題集（同じ章番号）を連動配置（既存の復習にも必ず付ける）---
-    const chNum = (item.text.match(/第(\d+)章/) || [])[1];
+    // --- 連動スマート問題集（章番号でマッチ）を直下に配置 ---
+    const chNum = extractChapterNum(item.text);
     const smartList = (typeof COURSE_DATA !== 'undefined' && COURSE_DATA.smart && COURSE_DATA.smart[item.subject]) || [];
-    const smartCh = chNum ? smartList.find(e => e[0] === Number(chNum)) : null;
+    const smartCh = chNum != null ? smartList.find(e => e[0] === chNum) : null;
     if (smartCh) {
       const [snum, stitle, smins] = smartCh;
-      const dupS = tasks.find(t => t.smartPair && t.pairedReviewItemId === item.id && t.reviewIdx === doneCount);
-      if (!dupS) {
-        tasks.push({
-          text: `✏️ スマート問題集 第${snum}章${stitle ? ' ' + stitle : ''} (${smins}分)`,
-          subject: item.subject,
-          done: false,
-          smartPair: true,
-          pairedReviewItemId: item.id,
-          reviewIdx: doneCount,
-          goalKey: 'textinitial',
-          mins: smins,
-          id: Date.now() + Math.random() + count + 0.5,
-        });
-        changed = true;
-      }
+      tasks.push({
+        text: `✏️ スマート問題集 第${snum}章${stitle ? ' ' + stitle : ''} (${smins}分)`,
+        subject: item.subject,
+        done: !!smartDone[`${item.id}:${doneCount}`],
+        smartPair: true,
+        pairedReviewItemId: item.id,
+        reviewIdx: doneCount,
+        goalKey: 'textinitial',
+        mins: smins,
+        id: Date.now() + Math.random() + count + 0.5,
+      });
     }
   });
-  if (changed) setData('today_' + dateStr, tasks);
+  setData('today_' + dateStr, tasks);
   return count;
 }
 
@@ -2006,7 +2065,7 @@ function loadToday() {
       (rawTasks.length === 0 ? '勉強内容を追加しましょう' : '該当カテゴリのタスクはありません') +
       '</p></div>';
   } else {
-    const html = SECTIONS.map(sec => {
+    const renderSection = (sec) => {
       if (sec.key === 'smart') return ''; // 標準のスマート問題集セクションは非表示
       const list = buckets[sec.key];
       if (!list.length) return '';
@@ -2039,8 +2098,20 @@ function loadToday() {
           ${sorted.map(renderTask).join('')}
         </div>
       `;
-    }).join('');
-    area.innerHTML = html;
+    };
+    // 2段式: ①インプット(動画+テキスト・テキスト復習+スマート) / ②アウトプット(過去問・選択式)
+    const TIER1 = ['video', 'textinitial'];
+    const TIER2 = ['past', 'select', '_other'];
+    const tier1 = SECTIONS.filter(s => TIER1.includes(s.key)).map(renderSection).join('');
+    const tier2 = SECTIONS.filter(s => TIER2.includes(s.key)).map(renderSection).join('');
+    const tierBlock = (label, inner) => inner ? `
+      <div style="margin-top:14px">
+        <div style="font-size:12px;font-weight:800;color:var(--primary);padding:6px 10px;background:linear-gradient(135deg,#e8f0fe,#f3e8fd);border-radius:6px;margin-bottom:4px">${label}</div>
+        ${inner}
+      </div>` : '';
+    area.innerHTML =
+      tierBlock('① インプット（動画・テキスト＋スマート問題集）', tier1) +
+      tierBlock('② アウトプット（過去問・選択式）', tier2);
   }
 
   const tasks = rawTasks;
@@ -3075,7 +3146,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-D');
+  autoBackupOnce('v2026-6-21-E');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
