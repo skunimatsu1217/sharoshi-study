@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621e';
+  const BUILD = '20260621f';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,12 +296,13 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-E</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-F</div>
   </div>
 </div>
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
+  <button class="tab-btn" data-tab="chokuzen">試験直前期</button>
   <button class="tab-btn" data-tab="progress" style="display:none">進捗</button>
   <button class="tab-btn" data-tab="review" style="display:none">復習</button>
   <button class="tab-btn" data-tab="flashcard" style="display:none">単語帳</button>
@@ -528,6 +529,19 @@ textarea { resize: vertical; min-height: 60px; }
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('review-add-modal')">＋ 学習完了を記録</button>
     <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="dedupReviewItems()">🧹 復習の重複を整理</button>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 試験直前期             -->
+  <!-- ==================== -->
+  <div id="chokuzen" class="tab-content">
+    <div class="card" style="background:linear-gradient(135deg,#fff1f2,#fef3c7)">
+      <div style="font-size:14px;font-weight:700;color:#b45309;margin-bottom:4px">🔥 試験直前期</div>
+      <div style="font-size:12px;color:var(--text-light);line-height:1.6">開始目安：7月中旬〜。総まとめ講座とまるごと過去問集を仕上げる時期です。</div>
+      <div id="chokuzen-progress" style="margin-top:8px;font-size:12px;font-weight:700"></div>
+    </div>
+    <div id="chokuzen-list"></div>
+    <button class="btn btn-outline btn-block btn-sm" style="margin-top:12px;color:var(--danger);border-color:var(--danger)" onclick="resetChokuzen()">チェックを全てリセット</button>
   </div>
 </div>
 
@@ -3128,6 +3142,66 @@ function loadReview() {
   }
 }
 
+// ==== 試験直前期 (総まとめ講座 + まるごと過去問集) ====
+// 完了状態は chokuzen_v1 = { itemKey: true } で保持
+function buildChokuzenSections() {
+  const cd = (typeof COURSE_DATA !== 'undefined') ? COURSE_DATA : {};
+  const fromData = (key, prefix) => (cd[key] ? Object.keys(cd[key]).map(k => {
+    const e = cd[key][k];
+    const title = Array.isArray(e) ? e[0] : e;
+    const mins = Array.isArray(e) ? e[1] : null;
+    return { key: `${prefix}:${k}`, label: title + (mins ? ` (${mins}分)` : '') };
+  }) : []);
+  const sections = [
+    { title: '📘 総まとめ講座（労務管理・社会保障制度・計算）', items: fromData('summary', 'sum') },
+    { title: '🔀 横断整理', items: fromData('oudan', 'oud') },
+    { title: '📝 今日のまとめ（科目別）', items: fromData('matome', 'mat') },
+    { title: '📚 まるごと過去問集［2026年合格目標］（科目別）',
+      items: SUBJECTS.map(s => ({ key: `maru:${s.id}`, label: s.name })) },
+  ];
+  return sections.filter(sec => sec.items.length > 0);
+}
+
+function toggleChokuzen(key) {
+  const done = getData('chokuzen_v1', {});
+  if (done[key]) delete done[key]; else done[key] = true;
+  setData('chokuzen_v1', done);
+  loadChokuzen();
+}
+
+function resetChokuzen() {
+  if (!confirm('試験直前期のチェックを全てリセットします。よろしいですか？')) return;
+  setData('chokuzen_v1', {});
+  loadChokuzen();
+}
+
+function loadChokuzen() {
+  const sections = buildChokuzenSections();
+  const done = getData('chokuzen_v1', {});
+  let total = 0, doneCount = 0;
+  const html = sections.map(sec => {
+    const rows = sec.items.map(it => {
+      total++;
+      const isDone = !!done[it.key];
+      if (isDone) doneCount++;
+      return `<div class="task-item ${isDone ? 'done' : ''}">
+        <div class="task-check ${isDone ? 'checked' : ''}" onclick="toggleChokuzen('${it.key}')">${isDone ? '✓' : ''}</div>
+        <div class="task-text">${esc(it.label)}</div>
+      </div>`;
+    }).join('');
+    const secDone = sec.items.filter(it => done[it.key]).length;
+    return `<div style="margin-top:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">
+        ${sec.title} <span style="opacity:0.7">(${secDone}/${sec.items.length})</span>
+      </div>${rows}</div>`;
+  }).join('');
+  const listEl = document.getElementById('chokuzen-list');
+  if (listEl) listEl.innerHTML = html;
+  const pct = total === 0 ? 0 : Math.round(doneCount / total * 100);
+  const progEl = document.getElementById('chokuzen-progress');
+  if (progEl) progEl.textContent = `完了 ${doneCount} / ${total}（${pct}%）`;
+}
+
 // ==== Swipe ====
 let touchStartX = 0;
 document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
@@ -3146,7 +3220,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-E');
+  autoBackupOnce('v2026-6-21-F');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
@@ -3182,6 +3256,7 @@ function init() {
       if (btn.dataset.tab === 'progress') loadProgress();
       if (btn.dataset.tab === 'today') loadToday();
       if (btn.dataset.tab === 'review') loadReview();
+      if (btn.dataset.tab === 'chokuzen') loadChokuzen();
     });
   });
 
@@ -3189,6 +3264,7 @@ function init() {
   loadProgress();
   loadToday();
   loadReview();
+  loadChokuzen();
 }
 
 init();
