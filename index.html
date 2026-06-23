@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621k';
+  const BUILD = '20260621l';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-K</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-L</div>
   </div>
 </div>
 
@@ -1340,15 +1340,16 @@ function autoAddDueTextReviews(dateStr) {
   const items = getData('review_items', []);
   const dismissed = getData('dismissed_' + dateStr, []);
 
-  // 復習(🔄)タスクのみ毎回再生成（回数ラベル更新のため）。チェック状態は保持。
-  // スマート連動タスクは復習とは独立して保持する（テキストとスマートを別々にチェックできるように）。
-  const reviewDone = {};
+  // 復習(🔄)・連動スマートを毎回再生成（ラベル/出現条件の更新のため）。チェック状態は保持。
+  // テキストとスマートのチェックは独立（キーが別なので片方を押してももう片方は変わらない）。
+  const reviewDone = {}, smartDone = {};
   tasks.forEach(t => {
     if (/^🔄/.test(t.text) && t.reviewItemId != null) reviewDone[`${t.reviewItemId}:${t.reviewIdx}`] = t.done;
+    if (t.smartPair && t.pairedReviewItemId != null) smartDone[`${t.pairedReviewItemId}:${t.reviewIdx}`] = t.done;
   });
-  tasks = tasks.filter(t => !/^🔄/.test(t.text)); // スマート連動(smartPair)はそのまま残す
+  tasks = tasks.filter(t => !/^🔄/.test(t.text) && !t.smartPair);
 
-  const activeItemIds = new Set();
+  const SMART_PAIR_MAX = 8; // スマート問題集の周回数（テキスト復習でこれを超えない）
   let count = 0;
   items.forEach(item => {
     if (!isActiveTextReview(item)) return;
@@ -1373,7 +1374,6 @@ function autoAddDueTextReviews(dateStr) {
       showIdx = doneCount;
       showDone = !!reviewDone[`${item.id}:${doneCount}`];
     }
-    activeItemIds.add(item.id);
 
     // --- 復習タスク ---
     const chapter = stripTextReviewPrefix(item.text);
@@ -1397,36 +1397,28 @@ function autoAddDueTextReviews(dateStr) {
     });
     count++;
 
-    // --- 連動スマート問題集（章単位で1つ・独立）。無ければ作る。既存のチェック状態は保持 ---
-    const hasSmart = tasks.some(t => t.smartPair && t.pairedReviewItemId === item.id);
-    if (!hasSmart) {
+    // --- 連動スマート問題集: テキスト復習の「奇数回(1,3,5…)」のみ、かつスマート周回数(8)以内 ---
+    const passNum = showIdx + 1;            // 1始まりの回数
+    const smartRound = (passNum + 1) / 2;   // passNumが奇数のとき整数（1→1,3→2,5→3…）
+    if (passNum % 2 === 1 && smartRound <= SMART_PAIR_MAX) {
       const chNum = extractChapterNum(item.text);
       const smartList = (typeof COURSE_DATA !== 'undefined' && COURSE_DATA.smart && COURSE_DATA.smart[item.subject]) || [];
       const smartCh = chNum != null ? smartList.find(e => e[0] === chNum) : null;
       if (smartCh) {
         const [snum, stitle, smins] = smartCh;
         tasks.push({
-          text: `✏️ スマート問題集 第${snum}章${stitle ? ' ' + stitle : ''} (${smins}分)`,
+          text: `✏️ スマート問題集 第${snum}章${stitle ? ' ' + stitle : ''}（${smartRound}/${SMART_PAIR_MAX}周）(${smins}分)`,
           subject: item.subject,
-          done: false,
+          done: !!smartDone[`${item.id}:${showIdx}`],
           smartPair: true,
           pairedReviewItemId: item.id,
+          reviewIdx: showIdx,
           goalKey: 'textinitial',
           mins: smins,
           id: Date.now() + Math.random() + count + 0.5,
         });
       }
     }
-  });
-
-  // 非アクティブ章のスマート連動を除去＋同一章の重複スマートを1つに整理
-  const seenSmart = new Set();
-  tasks = tasks.filter(t => {
-    if (!t.smartPair) return true;
-    if (!activeItemIds.has(t.pairedReviewItemId)) return false;
-    if (seenSmart.has(t.pairedReviewItemId)) return false;
-    seenSmart.add(t.pairedReviewItemId);
-    return true;
   });
 
   setData('today_' + dateStr, tasks);
@@ -3299,7 +3291,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-K');
+  autoBackupOnce('v2026-6-21-L');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
