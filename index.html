@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621m';
+  const BUILD = '20260621n';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-M</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-N</div>
   </div>
 </div>
 
@@ -2059,7 +2059,29 @@ function loadToday() {
   ];
   const buckets = {};
   SECTIONS.forEach(s => buckets[s.key] = []);
+
+  // テキスト復習＋スマート問題集は「ペア」。両方完了したときだけ一緒に下へ移動し、
+  // 片方だけ完了のときはペアごと その場(textinitial)に残す（セットが分離しないように）。
+  const pairId = (t) => t.reviewItemId != null ? t.reviewItemId
+    : (t.pairedReviewItemId != null ? t.pairedReviewItemId : null);
+  const pairAllDone = {};
+  filteredIndexed.forEach(({ t }) => {
+    if (t.goalKey !== 'textinitial') return;
+    const id = pairId(t);
+    if (id == null) return;
+    if (!(id in pairAllDone)) pairAllDone[id] = true;
+    if (!t.done) pairAllDone[id] = false;
+  });
+
   filteredIndexed.forEach(({ t, originalIdx }) => {
+    // ペアが未完了（片方でも残っている）なら、完了済みでも textinitial に留める
+    if (t.goalKey === 'textinitial') {
+      const id = pairId(t);
+      if (id != null && pairAllDone[id] === false) {
+        buckets['textinitial'].push({ t, originalIdx });
+        return;
+      }
+    }
     // 完了済みは隠さず一番下の「✅ 完了」にまとめて表示
     if (t.done) { buckets['donetoday'].push({ t, originalIdx }); return; }
     const k = t.goalKey && buckets[t.goalKey] ? t.goalKey : '_other';
@@ -3293,7 +3315,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-M');
+  autoBackupOnce('v2026-6-21-N');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
