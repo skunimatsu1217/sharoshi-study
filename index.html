@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621r';
+  const BUILD = '20260621s';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-R</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-S</div>
   </div>
 </div>
 
@@ -543,9 +543,9 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin:8px 0">
       <button class="cat-filter-btn active" data-rp="all" onclick="setReviewProgFilter('all')">全て</button>
-      <button class="cat-filter-btn" data-rp="due" onclick="setReviewProgFilter('due')">今日やる</button>
-      <button class="cat-filter-btn" data-rp="scheduled" onclick="setReviewProgFilter('scheduled')">予定</button>
-      <button class="cat-filter-btn" data-rp="done" onclick="setReviewProgFilter('done')">完了</button>
+      <button class="cat-filter-btn" data-rp="critical" onclick="setReviewProgFilter('critical')">🔥 重要(20回)</button>
+      <button class="cat-filter-btn" data-rp="high" onclick="setReviewProgFilter('high')">⭐ 標準(15回)</button>
+      <button class="cat-filter-btn" data-rp="normal" onclick="setReviewProgFilter('normal')">・ その他(5回)</button>
     </div>
     <div id="reviewprog-list"></div>
   </div>
@@ -3394,10 +3394,14 @@ function loadReviewProgress() {
       <span style="color:var(--success)">完了 <strong>${doneChapters}</strong></span>
     </div>`;
 
+  // フィルタボタンのハイライト更新
+  document.querySelectorAll('#reviewprog [data-rp]').forEach(b => b.classList.toggle('active', b.dataset.rp === REVIEWPROG_FILTER));
+
   // 並び: 各単元(科目)ごとに第1章から順番。科目はSUBJECTSの順。
   const subjOrder = {}; SUBJECTS.forEach((s, i) => subjOrder[s.id] = i);
   let list = rows.slice();
-  if (REVIEWPROG_FILTER !== 'all') list = list.filter(r => r.status === REVIEWPROG_FILTER);
+  // 重要度(🔥critical/⭐high/・normal)で分別
+  if (REVIEWPROG_FILTER !== 'all') list = list.filter(r => getItemImportance(r.item) === REVIEWPROG_FILTER);
   list.sort((a, b) =>
     ((subjOrder[a.item.subject] ?? 99) - (subjOrder[b.item.subject] ?? 99)) ||
     ((extractChapterNum(a.item.text) ?? 999) - (extractChapterNum(b.item.text) ?? 999)) ||
@@ -3471,7 +3475,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-R');
+  autoBackupOnce('v2026-6-21-S');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
