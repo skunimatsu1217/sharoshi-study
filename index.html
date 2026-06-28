@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621q';
+  const BUILD = '20260621r';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-Q</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-R</div>
   </div>
 </div>
 
@@ -1358,6 +1358,7 @@ function autoAddDueTextReviews(dateStr) {
   let tasks = getData('today_' + dateStr, []);
   const items = getData('review_items', []);
   const dismissed = getData('dismissed_' + dateStr, []);
+  const forced = getData('force_review_' + dateStr, []); // 「→」で今日に強制表示する章
 
   // 復習(🔄)・連動スマートを毎回再生成（ラベル/出現条件の更新のため）。チェック状態は保持。
   // テキストとスマートのチェックは独立（キーが別なので片方を押してももう片方は変わらない）。
@@ -1387,9 +1388,12 @@ function autoAddDueTextReviews(dateStr) {
       if (doneCount >= cfg.passes) return;            // 全パス完了済み
       const due = getNextDueDate(item);
       if (!due) return;
-      // 未着手(doneCount=0)かつ予定日が未到来のものだけ非表示。開始済みは継続表示。
-      if (due > dateStr && doneCount === 0) return;
-      if (dismissed.includes(`${item.id}:${doneCount}`)) return;
+      const isForced = forced.map(String).includes(String(item.id)); // 「→」で呼び出した章は予定日前でも表示
+      if (!isForced) {
+        // 未着手(doneCount=0)かつ予定日が未到来のものだけ非表示。開始済みは継続表示。
+        if (due > dateStr && doneCount === 0) return;
+        if (dismissed.includes(`${item.id}:${doneCount}`)) return;
+      }
       showIdx = doneCount;
       showDone = !!reviewDone[`${item.id}:${doneCount}`];
     }
@@ -2132,7 +2136,8 @@ function loadToday() {
     const rowOnclick = SELECT_MODE
       ? `onclick="toggleTaskSelection('${tid}')" style="cursor:pointer;${pairStyle}"`
       : (pairStyle ? `style="${pairStyle}"` : '');
-    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isSelected ? 'selected-task' : ''}" ${rowOnclick}>
+    const anchorId = (isRev && t.reviewItemId != null) ? ` id="todayrev-${t.reviewItemId}"` : '';
+    return `<div class="task-item ${t.done ? 'done' : ''} ${t.bonus ? 'bonus' : ''} ${t.carryover ? 'carryover' : ''} ${isSelected ? 'selected-task' : ''}"${anchorId} ${rowOnclick}>
       ${checkHTML}
       <div class="task-text">
         ${esc(t.text)} ${linked}${revHint}
@@ -3324,6 +3329,35 @@ function toggleReviewProgSubject(id) {
   if (REVIEWPROG_EXPANDED.has(id)) REVIEWPROG_EXPANDED.delete(id); else REVIEWPROG_EXPANDED.add(id);
   loadReviewProgress();
 }
+// 「→」: その章を今日タブに表示してチェックできるようにジャンプ
+function jumpToReview(itemId) {
+  const today = todayStr();
+  const forced = getData('force_review_' + today, []);
+  if (!forced.map(String).includes(String(itemId))) { forced.push(itemId); setData('force_review_' + today, forced); }
+  VIEW_DATE = null; // 今日に戻す
+  // 今日タブへ切替
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const tb = document.querySelector('.tab-btn[data-tab="today"]');
+  if (tb) tb.classList.add('active');
+  const tc = document.getElementById('today');
+  if (tc) tc.classList.add('active');
+  TODAY_CAT_FILTER = 'all';
+  loadToday();
+  // 該当項目へスクロール＋ハイライト
+  setTimeout(() => {
+    const el = document.getElementById('todayrev-' + itemId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.style.transition = 'background 0.3s';
+      const orig = el.style.background;
+      el.style.background = '#fff3cd';
+      setTimeout(() => { el.style.background = orig; }, 1600);
+    } else {
+      showToast('この章は今日の表示に追加しました');
+    }
+  }, 80);
+}
 
 function loadReviewProgress() {
   const items = getData('review_items', []).filter(isActiveTextReview);
@@ -3384,10 +3418,16 @@ function loadReviewProgress() {
       dots += `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin:0 1px"></span>`;
     }
     const dueInfo = status === 'done' ? '全回完了' : (status === 'due' ? '今日やるべき' : `次回 ${formatDate(due)}`);
-    return `<div class="card" style="padding:8px 10px;margin-bottom:6px">
-      <div style="font-size:12px;font-weight:600">${esc(chapter)} ${statusBadge[status]}</div>
-      <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} ${cfg.label} | ${doneCount}/${cfg.passes}回 | ${dueInfo}</div>
-      <div style="margin-top:4px">${dots}</div>
+    const jumpBtn = status === 'done' ? '' :
+      `<button onclick="jumpToReview('${item.id}')" title="今日タブで復習する"
+        style="flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1.5px solid var(--primary);background:#fff;color:var(--primary);font-size:16px;font-weight:800;cursor:pointer">→</button>`;
+    return `<div class="card" style="padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600">${esc(chapter)} ${statusBadge[status]}</div>
+        <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} ${cfg.label} | ${doneCount}/${cfg.passes}回 | ${dueInfo}</div>
+        <div style="margin-top:4px">${dots}</div>
+      </div>
+      ${jumpBtn}
     </div>`;
   };
 
@@ -3431,7 +3471,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-Q');
+  autoBackupOnce('v2026-6-21-R');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
