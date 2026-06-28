@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621n';
+  const BUILD = '20260621o';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,12 +296,13 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-N</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-O</div>
   </div>
 </div>
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
+  <button class="tab-btn" data-tab="reviewprog">復習進捗</button>
   <button class="tab-btn" data-tab="chokuzen">試験直前期</button>
   <button class="tab-btn" data-tab="progress" style="display:none">進捗</button>
   <button class="tab-btn" data-tab="review" style="display:none">復習</button>
@@ -529,6 +530,24 @@ textarea { resize: vertical; min-height: 60px; }
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('review-add-modal')">＋ 学習完了を記録</button>
     <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="dedupReviewItems()">🧹 復習の重複を整理</button>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 復習進捗               -->
+  <!-- ==================== -->
+  <div id="reviewprog" class="tab-content">
+    <div class="card" style="background:linear-gradient(135deg,#eef2ff,#fdf2f8)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">📊 テキスト復習の全体進捗</div>
+      <div style="font-size:11px;color:var(--text-light);line-height:1.6">全章の復習回数の達成状況です。重要度別の目標回数（🔥20回／⭐15回／・5回）に対する進捗を表示します。</div>
+      <div id="reviewprog-summary" style="margin-top:8px"></div>
+    </div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin:8px 0">
+      <button class="cat-filter-btn active" data-rp="all" onclick="setReviewProgFilter('all')">全て</button>
+      <button class="cat-filter-btn" data-rp="due" onclick="setReviewProgFilter('due')">今日やる</button>
+      <button class="cat-filter-btn" data-rp="scheduled" onclick="setReviewProgFilter('scheduled')">予定</button>
+      <button class="cat-filter-btn" data-rp="done" onclick="setReviewProgFilter('done')">完了</button>
+    </div>
+    <div id="reviewprog-list"></div>
   </div>
 
   <!-- ==================== -->
@@ -3297,6 +3316,75 @@ function loadChokuzen() {
   }
 }
 
+// ==== 復習進捗（テキスト復習の全体進捗） ====
+let REVIEWPROG_FILTER = 'all';
+function setReviewProgFilter(f) { REVIEWPROG_FILTER = f; loadReviewProgress(); }
+
+function loadReviewProgress() {
+  const items = getData('review_items', []).filter(isActiveTextReview);
+  const today = todayStr();
+  const rows = items.map(item => {
+    const cfg = getItemReviewConfig(item);
+    const doneCount = getCompletedPassCount(item);
+    const due = getNextDueDate(item);
+    let status;
+    if (doneCount >= cfg.passes) status = 'done';
+    else if (due && due <= today) status = 'due';
+    else status = 'scheduled';
+    return { item, cfg, doneCount, due, status };
+  });
+
+  // 概要
+  const chapters = rows.length;
+  const doneChapters = rows.filter(r => r.status === 'done').length;
+  const totalPasses = rows.reduce((a, r) => a + r.cfg.passes, 0);
+  const donePasses = rows.reduce((a, r) => a + Math.min(r.doneCount, r.cfg.passes), 0);
+  const pct = totalPasses ? Math.round(donePasses / totalPasses * 100) : 0;
+  const cntDue = rows.filter(r => r.status === 'due').length;
+  const cntSched = rows.filter(r => r.status === 'scheduled').length;
+  const sEl = document.getElementById('reviewprog-summary');
+  if (sEl) sEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-weight:700;font-size:13px">
+      <span>復習回数の達成</span><span>${donePasses} / ${totalPasses} 回（${pct}%）</span>
+    </div>
+    <div class="progress-total-bar" style="margin-top:4px"><div class="progress-total-fill" style="width:${pct}%"></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-top:8px">
+      <span>📚 章数 <strong>${chapters}</strong></span>
+      <span style="color:var(--danger)">今日やる <strong>${cntDue}</strong></span>
+      <span style="color:var(--text-light)">予定 <strong>${cntSched}</strong></span>
+      <span style="color:var(--success)">完了 <strong>${doneChapters}</strong></span>
+    </div>`;
+
+  // 並び: 今日やる(予定日昇順) → 予定(予定日昇順) → 完了。さらに回数の少ない順
+  const order = { due: 0, scheduled: 1, done: 2 };
+  let list = rows.slice();
+  if (REVIEWPROG_FILTER !== 'all') list = list.filter(r => r.status === REVIEWPROG_FILTER);
+  list.sort((a, b) =>
+    (order[a.status] - order[b.status]) ||
+    (a.doneCount - b.doneCount) ||
+    ((a.due || '').localeCompare(b.due || '')));
+
+  const statusBadge = { due: '<span class="review-badge rb-1d">今日</span>', scheduled: '<span class="review-badge rb-7d">予定</span>', done: '<span class="review-badge rb-1d" style="background:var(--success)">完了</span>' };
+  const lEl = document.getElementById('reviewprog-list');
+  if (!lEl) return;
+  if (list.length === 0) { lEl.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px;font-size:12px">該当する章はありません</p></div>'; return; }
+  lEl.innerHTML = list.map(({ item, cfg, doneCount, due, status }) => {
+    const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
+    const chapter = stripTextReviewPrefix(item.text);
+    let dots = '';
+    for (let i = 0; i < cfg.passes; i++) {
+      const c = i < doneCount ? 'var(--success)' : (i === doneCount && status !== 'done' ? 'var(--danger)' : 'var(--border)');
+      dots += `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin:0 1px"></span>`;
+    }
+    const dueInfo = status === 'done' ? '全回完了' : (status === 'due' ? '今日やるべき' : `次回 ${formatDate(due)}`);
+    return `<div class="card" style="padding:8px 10px;margin-bottom:6px">
+      <div style="font-size:12px;font-weight:600">${esc(chapter)} ${statusBadge[status]}</div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} ${cfg.label} | ${doneCount}/${cfg.passes}回 | ${dueInfo}</div>
+      <div style="margin-top:4px">${dots}</div>
+    </div>`;
+  }).join('');
+}
+
 // ==== Swipe ====
 let touchStartX = 0;
 document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
@@ -3315,7 +3403,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-N');
+  autoBackupOnce('v2026-6-21-O');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
@@ -3352,6 +3440,7 @@ function init() {
       if (btn.dataset.tab === 'today') loadToday();
       if (btn.dataset.tab === 'review') loadReview();
       if (btn.dataset.tab === 'chokuzen') loadChokuzen();
+      if (btn.dataset.tab === 'reviewprog') loadReviewProgress();
     });
   });
 
@@ -3360,6 +3449,7 @@ function init() {
   loadToday();
   loadReview();
   loadChokuzen();
+  loadReviewProgress();
 }
 
 init();
