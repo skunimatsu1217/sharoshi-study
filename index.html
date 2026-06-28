@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621p';
+  const BUILD = '20260621q';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-P</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-Q</div>
   </div>
 </div>
 
@@ -3318,7 +3318,12 @@ function loadChokuzen() {
 
 // ==== 復習進捗（テキスト復習の全体進捗） ====
 let REVIEWPROG_FILTER = 'all';
+const REVIEWPROG_EXPANDED = new Set(); // 展開中の科目id
 function setReviewProgFilter(f) { REVIEWPROG_FILTER = f; loadReviewProgress(); }
+function toggleReviewProgSubject(id) {
+  if (REVIEWPROG_EXPANDED.has(id)) REVIEWPROG_EXPANDED.delete(id); else REVIEWPROG_EXPANDED.add(id);
+  loadReviewProgress();
+}
 
 function loadReviewProgress() {
   const items = getData('review_items', []).filter(isActiveTextReview);
@@ -3368,15 +3373,10 @@ function loadReviewProgress() {
   const lEl = document.getElementById('reviewprog-list');
   if (!lEl) return;
   if (list.length === 0) { lEl.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px;font-size:12px">該当する章はありません</p></div>'; return; }
-  let lastSubj = null;
-  lEl.innerHTML = list.map(({ item, cfg, doneCount, due, status }) => {
-    const subj = SUBJECTS.find(s => s.id === item.subject);
-    const sn = subj?.short || '';
-    let header = '';
-    if (item.subject !== lastSubj) {
-      lastSubj = item.subject;
-      header = `<div style="font-size:12px;font-weight:800;color:var(--primary);padding:5px 10px;background:#f0f4f9;border-radius:4px;margin:10px 0 4px">${subj?.name || sn || 'その他'}</div>`;
-    }
+
+  // 章カード描画
+  const renderRow = ({ item, cfg, doneCount, due, status }) => {
+    const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
     const chapter = stripTextReviewPrefix(item.text);
     let dots = '';
     for (let i = 0; i < cfg.passes; i++) {
@@ -3384,11 +3384,32 @@ function loadReviewProgress() {
       dots += `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin:0 1px"></span>`;
     }
     const dueInfo = status === 'done' ? '全回完了' : (status === 'due' ? '今日やるべき' : `次回 ${formatDate(due)}`);
-    return `${header}<div class="card" style="padding:8px 10px;margin-bottom:6px">
+    return `<div class="card" style="padding:8px 10px;margin-bottom:6px">
       <div style="font-size:12px;font-weight:600">${esc(chapter)} ${statusBadge[status]}</div>
       <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} ${cfg.label} | ${doneCount}/${cfg.passes}回 | ${dueInfo}</div>
       <div style="margin-top:4px">${dots}</div>
     </div>`;
+  };
+
+  // 科目(ラベル)ごとにグループ化。ラベルをタップで開閉（フィルタ時は自動展開）
+  const groups = [];
+  list.forEach(r => {
+    const last = groups[groups.length - 1];
+    if (last && last.subj === r.item.subject) last.rows.push(r);
+    else groups.push({ subj: r.item.subject, rows: [r] });
+  });
+  lEl.innerHTML = groups.map(g => {
+    const subj = SUBJECTS.find(s => s.id === g.subj);
+    const name = subj?.name || g.subj || 'その他';
+    const expanded = REVIEWPROG_EXPANDED.has(g.subj) || REVIEWPROG_FILTER !== 'all';
+    const gPasses = g.rows.reduce((a, r) => a + r.cfg.passes, 0);
+    const gDone = g.rows.reduce((a, r) => a + Math.min(r.doneCount, r.cfg.passes), 0);
+    const gDue = g.rows.filter(r => r.status === 'due').length;
+    const header = `<div onclick="toggleReviewProgSubject('${g.subj}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;color:var(--primary);padding:9px 10px;background:#eef2ff;border-radius:6px;margin:10px 0 4px">
+      <span>${expanded ? '▼' : '▶'} ${name}（${g.rows.length}章）</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-light)">${gDone}/${gPasses}回${gDue ? ` ・<span style="color:var(--danger)">今日${gDue}</span>` : ''}</span>
+    </div>`;
+    return header + (expanded ? g.rows.map(renderRow).join('') : '');
   }).join('');
 }
 
@@ -3410,7 +3431,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-P');
+  autoBackupOnce('v2026-6-21-Q');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
