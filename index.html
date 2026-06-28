@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621o';
+  const BUILD = '20260621p';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-O</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-P</div>
   </div>
 </div>
 
@@ -3355,21 +3355,28 @@ function loadReviewProgress() {
       <span style="color:var(--success)">完了 <strong>${doneChapters}</strong></span>
     </div>`;
 
-  // 並び: 今日やる(予定日昇順) → 予定(予定日昇順) → 完了。さらに回数の少ない順
-  const order = { due: 0, scheduled: 1, done: 2 };
+  // 並び: 各単元(科目)ごとに第1章から順番。科目はSUBJECTSの順。
+  const subjOrder = {}; SUBJECTS.forEach((s, i) => subjOrder[s.id] = i);
   let list = rows.slice();
   if (REVIEWPROG_FILTER !== 'all') list = list.filter(r => r.status === REVIEWPROG_FILTER);
   list.sort((a, b) =>
-    (order[a.status] - order[b.status]) ||
-    (a.doneCount - b.doneCount) ||
-    ((a.due || '').localeCompare(b.due || '')));
+    ((subjOrder[a.item.subject] ?? 99) - (subjOrder[b.item.subject] ?? 99)) ||
+    ((extractChapterNum(a.item.text) ?? 999) - (extractChapterNum(b.item.text) ?? 999)) ||
+    ((a.item.text || '').localeCompare(b.item.text || '')));
 
   const statusBadge = { due: '<span class="review-badge rb-1d">今日</span>', scheduled: '<span class="review-badge rb-7d">予定</span>', done: '<span class="review-badge rb-1d" style="background:var(--success)">完了</span>' };
   const lEl = document.getElementById('reviewprog-list');
   if (!lEl) return;
   if (list.length === 0) { lEl.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-light);padding:10px;font-size:12px">該当する章はありません</p></div>'; return; }
+  let lastSubj = null;
   lEl.innerHTML = list.map(({ item, cfg, doneCount, due, status }) => {
-    const sn = SUBJECTS.find(s => s.id === item.subject)?.short || '';
+    const subj = SUBJECTS.find(s => s.id === item.subject);
+    const sn = subj?.short || '';
+    let header = '';
+    if (item.subject !== lastSubj) {
+      lastSubj = item.subject;
+      header = `<div style="font-size:12px;font-weight:800;color:var(--primary);padding:5px 10px;background:#f0f4f9;border-radius:4px;margin:10px 0 4px">${subj?.name || sn || 'その他'}</div>`;
+    }
     const chapter = stripTextReviewPrefix(item.text);
     let dots = '';
     for (let i = 0; i < cfg.passes; i++) {
@@ -3377,7 +3384,7 @@ function loadReviewProgress() {
       dots += `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin:0 1px"></span>`;
     }
     const dueInfo = status === 'done' ? '全回完了' : (status === 'due' ? '今日やるべき' : `次回 ${formatDate(due)}`);
-    return `<div class="card" style="padding:8px 10px;margin-bottom:6px">
+    return `${header}<div class="card" style="padding:8px 10px;margin-bottom:6px">
       <div style="font-size:12px;font-weight:600">${esc(chapter)} ${statusBadge[status]}</div>
       <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} ${cfg.label} | ${doneCount}/${cfg.passes}回 | ${dueInfo}</div>
       <div style="margin-top:4px">${dots}</div>
@@ -3403,7 +3410,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-O');
+  autoBackupOnce('v2026-6-21-P');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
