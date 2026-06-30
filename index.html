@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621s';
+  const BUILD = '20260621t';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-S</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-T</div>
   </div>
 </div>
 
@@ -2990,6 +2990,7 @@ function setImportanceForItem(itemId, level) {
   setData('chapter_importance_v1', map);
   loadReview();
   if (typeof loadToday === 'function') loadToday();
+  if (typeof loadReviewProgress === 'function') loadReviewProgress();
   showToast(`重要度を${TEXT_REVIEW_CONFIG[level]?.label || '・'}に設定`);
 }
 
@@ -3425,13 +3426,25 @@ function loadReviewProgress() {
     const jumpBtn = status === 'done' ? '' :
       `<button onclick="jumpToReview('${item.id}')" title="今日タブで復習する"
         style="flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1.5px solid var(--primary);background:#fff;color:var(--primary);font-size:16px;font-weight:800;cursor:pointer">→</button>`;
-    return `<div class="card" style="padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600">${esc(chapter)} ${statusBadge[status]}</div>
-        <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} ${cfg.label} | ${doneCount}/${cfg.passes}回 | ${dueInfo}</div>
-        <div style="margin-top:4px">${dots}</div>
+    // 重要度設定ボタン（🔥/⭐/・）
+    const curImp = getItemImportance(item);
+    const impBtns = [['critical', '🔥20回'], ['high', '⭐15回'], ['normal', '・5回']].map(([k, l]) => {
+      const on = curImp === k;
+      return `<button onclick="setImportanceForItem(${item.id},'${k}')"
+        style="flex:1;padding:4px 2px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;
+        border:1.5px solid ${on ? 'var(--primary)' : 'var(--border)'};
+        background:${on ? 'var(--primary)' : '#fff'};color:${on ? '#fff' : 'var(--text-light)'}">${l}</button>`;
+    }).join('');
+    return `<div class="card" style="padding:8px 10px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${esc(chapter)} ${statusBadge[status]}</div>
+          <div style="font-size:11px;color:var(--text-light);margin-top:2px">${sn} ${cfg.label} | ${doneCount}/${cfg.passes}回 | ${dueInfo}</div>
+          <div style="margin-top:4px">${dots}</div>
+        </div>
+        ${jumpBtn}
       </div>
-      ${jumpBtn}
+      <div style="display:flex;gap:4px;margin-top:6px">${impBtns}</div>
     </div>`;
   };
 
@@ -3475,7 +3488,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-S');
+  autoBackupOnce('v2026-6-21-T');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
