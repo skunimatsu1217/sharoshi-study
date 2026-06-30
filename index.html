@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621u';
+  const BUILD = '20260621v';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-U</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-V</div>
   </div>
 </div>
 
@@ -510,8 +510,8 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="card" style="padding:10px 12px">
       <div style="font-size:11px;font-weight:700;color:var(--text-light);margin-bottom:6px">📖 テキスト復習スケジュール (期限 2026-08-20)</div>
       <div style="font-size:11px;line-height:1.6">
-        🔥 重要 (炎): <strong>20回 × 4日おき</strong><br>
-        ⭐ 標準 (★): <strong>15回 × 6日おき</strong><br>
+        🔥 重要 (炎): <strong>10回 × 4日おき</strong><br>
+        ⭐ 標準 (★): <strong>10回 × 6日おき</strong><br>
         ・ その他: <strong>5回 × 17日おき</strong>
       </div>
       <p style="font-size:10px;color:var(--text-light);margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,0.1)">
@@ -546,13 +546,13 @@ textarea { resize: vertical; min-height: 60px; }
   <div id="reviewprog" class="tab-content">
     <div class="card" style="background:linear-gradient(135deg,#eef2ff,#fdf2f8)">
       <div style="font-size:14px;font-weight:700;margin-bottom:4px">📊 テキスト復習の全体進捗</div>
-      <div style="font-size:11px;color:var(--text-light);line-height:1.6">全章の復習回数の達成状況です。重要度別の目標回数（🔥20回／⭐15回／・5回）に対する進捗を表示します。</div>
+      <div style="font-size:11px;color:var(--text-light);line-height:1.6">全章の復習回数の達成状況です。重要度別の目標回数（🔥10回／⭐10回／・5回）に対する進捗を表示します。</div>
       <div id="reviewprog-summary" style="margin-top:8px"></div>
     </div>
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin:8px 0">
       <button class="cat-filter-btn active" data-rp="all" onclick="setReviewProgFilter('all')">全て</button>
-      <button class="cat-filter-btn" data-rp="critical" onclick="setReviewProgFilter('critical')">🔥 重要(20回)</button>
-      <button class="cat-filter-btn" data-rp="high" onclick="setReviewProgFilter('high')">⭐ 標準(15回)</button>
+      <button class="cat-filter-btn" data-rp="critical" onclick="setReviewProgFilter('critical')">🔥 重要(10回)</button>
+      <button class="cat-filter-btn" data-rp="high" onclick="setReviewProgFilter('high')">⭐ 標準(10回)</button>
       <button class="cat-filter-btn" data-rp="normal" onclick="setReviewProgFilter('normal')">・ その他(5回)</button>
     </div>
     <div id="reviewprog-list"></div>
@@ -637,10 +637,10 @@ const REVIEW_LABELS = ['1日後','3日後','7日後','14日後','30日後'];
 const REVIEW_MIN_PER_PASS = [5, 5, 10, 10, 15];
 
 // 新スケジュール（テキスト復習・章単位 importance ベース）
-// critical=🔥(20回×4日おき), high=⭐(15回×6日おき), normal=・(5回×17日おき)
+// critical=🔥(10回×4日おき), high=⭐(10回×6日おき), normal=・(5回×17日おき)
 const TEXT_REVIEW_CONFIG = {
-  critical: { passes: 20, intervalDays: 4, label: '🔥', color: '#ea4335' },
-  high:     { passes: 15, intervalDays: 6, label: '⭐', color: '#d97706' },
+  critical: { passes: 10, intervalDays: 4, label: '🔥', color: '#ea4335' },
+  high:     { passes: 10, intervalDays: 6, label: '⭐', color: '#d97706' },
   normal:   { passes: 5,  intervalDays: 17, label: '・', color: '#666' },
 };
 const TEXT_REVIEW_MIN_PER_PASS = 10; // 1回あたり想定 10分
@@ -2965,8 +2965,8 @@ function addReviewItem() {
 // Storage: chapter_importance_v1 = { "科目short:章番号": 'critical'|'high'|'normal' }
 // Lookup: parse review item text like "📖 テキスト復習: 雇用 第1章 総則..." → "雇用:1"
 const IMPORTANCE_LABEL = {
-  critical: '🔥×20回',
-  high: '⭐×15回',
+  critical: '🔥×10回',
+  high: '⭐×10回',
   normal: '・×5回',
   unset: '',
 };
@@ -3130,8 +3130,8 @@ function loadReview() {
     if (!isTextReview(text)) return '';
     const cur = getImportance(text);
     const levels = [
-      { k: 'critical', l: '🔥20回' },
-      { k: 'high', l: '⭐15回' },
+      { k: 'critical', l: '🔥10回' },
+      { k: 'high', l: '⭐10回' },
       { k: 'normal', l: '・5回' },
     ];
     return `<div class="imp-set-row">${levels.map(lv =>
@@ -3543,7 +3543,7 @@ function loadReviewProgress() {
         style="flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1.5px solid var(--primary);background:#fff;color:var(--primary);font-size:16px;font-weight:800;cursor:pointer">→</button>`;
     // 重要度設定ボタン（🔥/⭐/・）
     const curImp = getItemImportance(item);
-    const impBtns = [['critical', '🔥20回'], ['high', '⭐15回'], ['normal', '・5回']].map(([k, l]) => {
+    const impBtns = [['critical', '🔥10回'], ['high', '⭐10回'], ['normal', '・5回']].map(([k, l]) => {
       const on = curImp === k;
       return `<button onclick="setImportanceForItem(${item.id},'${k}')"
         style="flex:1;padding:4px 2px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;
@@ -3603,7 +3603,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-U');
+  autoBackupOnce('v2026-6-21-V');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
