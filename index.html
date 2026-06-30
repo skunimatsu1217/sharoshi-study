@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621t';
+  const BUILD = '20260621u';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,12 +296,13 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-T</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-U</div>
   </div>
 </div>
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
+  <button class="tab-btn" data-tab="examsched">試験日まで</button>
   <button class="tab-btn" data-tab="reviewprog">復習進捗</button>
   <button class="tab-btn" data-tab="chokuzen">試験直前期</button>
   <button class="tab-btn" data-tab="progress" style="display:none">進捗</button>
@@ -530,6 +531,13 @@ textarea { resize: vertical; min-height: 60px; }
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('review-add-modal')">＋ 学習完了を記録</button>
     <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="dedupReviewItems()">🧹 復習の重複を整理</button>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 試験日まで             -->
+  <!-- ==================== -->
+  <div id="examsched" class="tab-content">
+    <div id="examsched-body"></div>
   </div>
 
   <!-- ==================== -->
@@ -3322,6 +3330,113 @@ function loadChokuzen() {
   }
 }
 
+// ==== 試験日までのスケジュール ====
+function loadExamSchedule() {
+  const el = document.getElementById('examsched-body');
+  if (!el) return;
+  const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
+  const today = todayStr();
+  const daysPassed = Math.max(0, Math.floor((new Date(today) - new Date(GOAL_START)) / 86400000));
+  const elapsed = Math.max(1, daysPassed);
+  const daysRemaining = Math.max(0, GOAL_DAYS - daysPassed);
+  const fmtH = (m) => `${Math.round(m / 60 * 10) / 10}h`;
+
+  let totalNeeded = 0, totalDone = 0;
+  const cats = [];
+  GOALS.forEach(g => {
+    const totalMin = g.totalUnits * g.rounds * g.minPerUnit;
+    let doneMin = 0;
+    if (g.progKey && g.dataKey && progress[g.progKey]) {
+      const data = COURSE_DATA[g.dataKey];
+      progress[g.progKey].items.forEach(it => { doneMin += computeDoneMinutesForGoal(g, it.done, data[it.id] || []); });
+    }
+    totalNeeded += totalMin; totalDone += doneMin;
+    const remain = Math.max(0, totalMin - doneMin);
+    const req = daysRemaining > 0 ? Math.ceil(remain / daysRemaining) : remain;
+    const projPct = totalMin ? Math.round((doneMin / elapsed * GOAL_DAYS) / totalMin * 100) : 0;
+    cats.push({ label: `${g.icon} ${g.label}`, sub: `×${g.rounds}周`, doneMin, totalMin, remain, req, projPct });
+  });
+  const textRev = computeTextReviewTotalMin();
+  const review = computeReviewMinutes();
+  if (textRev.totalPasses > 0) {
+    totalNeeded += textRev.totalMin; totalDone += review.totalMin;
+    const remain = Math.max(0, textRev.totalMin - review.totalMin);
+    const req = daysRemaining > 0 ? Math.ceil(remain / daysRemaining) : remain;
+    const projPct = textRev.totalMin ? Math.round((review.totalMin / elapsed * GOAL_DAYS) / textRev.totalMin * 100) : 0;
+    cats.push({ label: '📖 テキスト復習', sub: `${review.count}/${textRev.totalPasses}回`, doneMin: review.totalMin, totalMin: textRev.totalMin, remain, req, projPct });
+  } else { totalDone += review.totalMin; }
+
+  const overallPace = totalDone / elapsed;
+  const projPct = totalNeeded ? Math.round((overallPace * GOAL_DAYS) / totalNeeded * 100) : 0;
+  const reqPace = daysRemaining > 0 ? Math.ceil((totalNeeded - totalDone) / daysRemaining) : 0;
+  const dailyTarget = totalNeeded / GOAL_DAYS;
+  const expected = dailyTarget * daysPassed;
+  const delta = expected - totalDone; // 正=遅れ
+  const behind = delta > 0;
+  const deltaH = Math.round(Math.abs(delta) / 60 * 10) / 10;
+  const deltaDays = Math.round(Math.abs(delta) / dailyTarget * 10) / 10;
+  const col = projPct >= 100 ? 'var(--success)' : (projPct >= 70 ? '#d97706' : 'var(--danger)');
+  const examDate = new Date(GOAL_END);
+  const examStr = `${examDate.getFullYear()}年${examDate.getMonth() + 1}月${examDate.getDate()}日`;
+
+  const catRows = cats.map(c => {
+    const cc = c.projPct >= 100 ? 'var(--success)' : (c.projPct >= 70 ? '#d97706' : 'var(--danger)');
+    const donePct = c.totalMin ? Math.round(c.doneMin / c.totalMin * 100) : 0;
+    return `<div style="padding:7px 4px;border-bottom:1px dashed rgba(0,0,0,0.08)">
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span><strong>${c.label}</strong> <span style="color:var(--text-light);font-size:10px">${c.sub}</span></span>
+        <span style="color:${cc};font-weight:700">予測 ${c.projPct}%</span>
+      </div>
+      <div class="progress-total-bar" style="margin:4px 0"><div class="progress-total-fill" style="width:${donePct}%;background:${cc}"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-light)">
+        <span>済 ${fmtH(c.doneMin)} / ${fmtH(c.totalMin)}（${donePct}%）</span>
+        <span>残り ${fmtH(c.remain)}・必要 <strong style="color:${cc}">${c.req}分/日</strong></span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const reqH = Math.round(reqPace / 60 * 10) / 10;
+  const curH = Math.round(overallPace / 60 * 10) / 10;
+  el.innerHTML = `
+    <div class="card" style="background:linear-gradient(135deg,#eef2ff,#fdf2f8);text-align:center">
+      <div style="font-size:13px;font-weight:700">🎯 試験 ${examStr}</div>
+      <div style="font-size:30px;font-weight:800;color:var(--primary);line-height:1.1;margin:4px 0">あと ${daysRemaining}日</div>
+      <div style="font-size:11px;color:var(--text-light)">経過 ${daysPassed}日 / 全${GOAL_DAYS}日</div>
+    </div>
+
+    <div class="card">
+      <div style="text-align:center">
+        <div style="font-size:11px;color:var(--text-light)">このペースで試験日までに到達できる目標％</div>
+        <div style="font-size:38px;font-weight:800;color:${col};line-height:1.1;margin:2px 0">${projPct}<span style="font-size:18px">%</span></div>
+      </div>
+      <div style="text-align:center;font-size:13px;font-weight:700;margin:6px 0;color:${behind ? 'var(--danger)' : 'var(--success)'}">
+        ${daysPassed === 0 ? '開始日' : (behind ? `📍 遅れ ${deltaH}h（約${deltaDays}日分）` : `✨ 前倒し ${deltaH}h（約${deltaDays}日分）`)}
+      </div>
+      <div style="display:flex;justify-content:space-around;font-size:11px;padding:8px 0;border-top:1px dashed rgba(0,0,0,0.1)">
+        <div style="text-align:center"><div style="color:var(--text-light)">現ペース</div><div style="font-weight:700;font-size:14px">${curH}h/日</div></div>
+        <div style="text-align:center"><div style="color:var(--text-light)">必要ペース</div><div style="font-weight:700;font-size:14px;color:${col}">${reqH}h/日</div></div>
+        <div style="text-align:center"><div style="color:var(--text-light)">1日の目安</div><div style="font-weight:700;font-size:14px">${Math.round(dailyTarget)}分</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">📚 教材別の残りと必要ペース</div>
+      ${catRows}
+    </div>
+
+    <div class="card" style="background:#fff7ed">
+      <div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:6px">💡 間に合わせるには</div>
+      <div style="font-size:12px;line-height:1.7">
+        ・残り全教材を試験日までに終えるには <strong>1日 約${reqH}h（${reqPace}分）</strong> 必要です。<br>
+        ・現在のペースは <strong>${curH}h/日</strong>（このままだと <strong style="color:${col}">${projPct}%</strong> 到達）。<br>
+        ${reqPace > overallPace ? `・差を埋めるには <strong style="color:var(--danger)">毎日 +${Math.round((reqPace - overallPace))}分</strong> 上乗せが必要です。` : '・現状維持で間に合うペースです。'}
+      </div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.1);line-height:1.6">
+        間に合わない場合の調整案：重要度を下げて復習回数を減らす（🔥20→⭐15→・5）／過去問・選択式の周回数を見直す／優先科目に絞る。指示いただければ設定変更します。
+      </div>
+    </div>`;
+}
+
 // ==== 復習進捗（テキスト復習の全体進捗） ====
 let REVIEWPROG_FILTER = 'all';
 const REVIEWPROG_EXPANDED = new Set(); // 展開中の科目id
@@ -3488,7 +3603,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-T');
+  autoBackupOnce('v2026-6-21-U');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
@@ -3526,6 +3641,7 @@ function init() {
       if (btn.dataset.tab === 'review') loadReview();
       if (btn.dataset.tab === 'chokuzen') loadChokuzen();
       if (btn.dataset.tab === 'reviewprog') loadReviewProgress();
+      if (btn.dataset.tab === 'examsched') loadExamSchedule();
     });
   });
 
@@ -3535,6 +3651,7 @@ function init() {
   loadReview();
   loadChokuzen();
   loadReviewProgress();
+  loadExamSchedule();
 }
 
 init();
