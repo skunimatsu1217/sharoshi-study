@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621v';
+  const BUILD = '20260621w';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-V</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-W</div>
   </div>
 </div>
 
@@ -651,10 +651,10 @@ const GOAL_END   = '2026-08-20';
 const GOAL_DAYS  = Math.round((new Date(GOAL_END) - new Date(GOAL_START)) / 86400000) + 1; // 130日
 
 const GOALS = [
-  { key:'video',   icon:'📹', label:'基本動画+テキスト', rounds:2,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
-  { key:'smart',   icon:'✏️', label:'スマート問題集',   rounds:8,  totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
+  { key:'video',   icon:'📹', label:'基本動画+テキスト', rounds:1,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
+  { key:'smart',   icon:'✏️', label:'スマート問題集',   rounds:3,  totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
   { key:'past',    icon:'📝', label:'セレクト過去問',   rounds:5,  totalUnits:45,  minPerUnit:13, dataKey:'past',   progKey:'past'   },
-  { key:'select',  icon:'🎯', label:'選択式ポイント',   rounds:10, totalUnits:44,  minPerUnit:14, dataKey:'select', progKey:'select' },
+  { key:'select',  icon:'🎯', label:'選択式ポイント',   rounds:3,  totalUnits:44,  minPerUnit:14, dataKey:'select', progKey:'select' },
 ];
 
 const SUBJECTS = [
@@ -677,29 +677,29 @@ const MARUGOTO_ROUNDS = 3; // 3周
 // 1周あたりの講義数。本番の total は rounds 倍した値（試験日までに全rounds周完了が目標）
 // 基本動画×2周, スマート×8周, 過去問×8周, 選択式×8周（テキスト単体は復習機能に統合）
 const DEFAULT_PROGRESS = {
-  kihon: { label:'基本動画+テキスト (×2周)', css:'pcat-lecture', color:'#1a73e8', rounds:2, items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:40,perRound:20 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:48,perRound:24 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:48,perRound:24 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:48,perRound:24 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:20,perRound:10 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:20,perRound:10 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:24,perRound:12 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:36,perRound:18 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:24,perRound:12 },
-    { id:'roukihou',name:'労働基準法',done:0,total:40,perRound:20 },
+  kihon: { label:'基本動画+テキスト (×1周)', css:'pcat-lecture', color:'#1a73e8', rounds:1, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:20,perRound:20 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:24,perRound:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:24,perRound:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:24,perRound:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:10,perRound:10 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:10,perRound:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:12,perRound:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:18,perRound:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:12,perRound:12 },
+    { id:'roukihou',name:'労働基準法',done:0,total:20,perRound:20 },
   ]},
-  smart: { label:'スマート問題集 (×8周)', css:'pcat-smart', color:'#34a853', rounds:8, items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:160,perRound:20 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:192,perRound:24 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:192,perRound:24 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:192,perRound:24 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:80,perRound:10 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:80,perRound:10 },
-    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:96,perRound:12 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:144,perRound:18 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:96,perRound:12 },
-    { id:'roukihou',name:'労働基準法',done:0,total:160,perRound:20 },
+  smart: { label:'スマート問題集 (×3周)', css:'pcat-smart', color:'#34a853', rounds:3, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:60,perRound:20 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:72,perRound:24 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:72,perRound:24 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:72,perRound:24 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:30,perRound:10 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:30,perRound:10 },
+    { id:'choushuuhou',name:'労働保険徴収法',done:0,total:36,perRound:12 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:54,perRound:18 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:36,perRound:12 },
+    { id:'roukihou',name:'労働基準法',done:0,total:60,perRound:20 },
   ]},
   past: { label:'セレクト過去問集 (×5周)', css:'pcat-past', color:'#b5890a', rounds:5, items: [
     { id:'koyouhou',name:'雇用保険法',done:0,total:25,perRound:5 },
@@ -713,16 +713,16 @@ const DEFAULT_PROGRESS = {
     { id:'roudou_ippan',name:'労働一般常識',done:0,total:10,perRound:2 },
     { id:'roukihou',name:'労働基準法',done:0,total:15,perRound:3 },
   ]},
-  select: { label:'選択式ポイント問題集 (×10周)', css:'pcat-select', color:'#ea4335', rounds:10, items: [
-    { id:'koyouhou',name:'雇用保険法',done:0,total:50,perRound:5 },
-    { id:'kounenhou',name:'厚生年金保険法',done:0,total:60,perRound:6 },
-    { id:'kenpohou',name:'健康保険法',done:0,total:70,perRound:7 },
-    { id:'kokunenhou',name:'国民年金法',done:0,total:70,perRound:7 },
-    { id:'aneihou',name:'労働安全衛生法',done:0,total:30,perRound:3 },
-    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:30,perRound:3 },
-    { id:'roudou_ippan',name:'労働一般常識',done:0,total:50,perRound:5 },
-    { id:'rousaihou',name:'労災保険法',done:0,total:50,perRound:5 },
-    { id:'roukihou',name:'労働基準法',done:0,total:40,perRound:4 },
+  select: { label:'選択式ポイント問題集 (×3周)', css:'pcat-select', color:'#ea4335', rounds:3, items: [
+    { id:'koyouhou',name:'雇用保険法',done:0,total:15,perRound:5 },
+    { id:'kounenhou',name:'厚生年金保険法',done:0,total:18,perRound:6 },
+    { id:'kenpohou',name:'健康保険法',done:0,total:21,perRound:7 },
+    { id:'kokunenhou',name:'国民年金法',done:0,total:21,perRound:7 },
+    { id:'aneihou',name:'労働安全衛生法',done:0,total:9,perRound:3 },
+    { id:'shakai_ippan',name:'社会保険一般常識',done:0,total:9,perRound:3 },
+    { id:'roudou_ippan',name:'労働一般常識',done:0,total:15,perRound:5 },
+    { id:'rousaihou',name:'労災保険法',done:0,total:15,perRound:5 },
+    { id:'roukihou',name:'労働基準法',done:0,total:12,perRound:4 },
   ]},
   summary: { label:'総まとめ講座', css:'pcat-summary', color:'#8b5cf6', rounds:1, items: [
     { id:'roumu',name:'労務管理',done:0,total:4,perRound:4 },
@@ -3603,7 +3603,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-V');
+  autoBackupOnce('v2026-6-21-W');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
