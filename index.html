@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621w';
+  const BUILD = '20260621x';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-W</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-X</div>
   </div>
 </div>
 
@@ -657,17 +657,20 @@ const GOALS = [
   { key:'select',  icon:'🎯', label:'選択式ポイント',   rounds:3,  totalUnits:44,  minPerUnit:14, dataKey:'select', progKey:'select' },
 ];
 
+// 並び順 = 優先順位（今日の目標タスク生成・各タブの表示順）。社会保険科目を優先して先頭に配置。
 const SUBJECTS = [
-  { id:'koyouhou', name:'雇用保険法', short:'雇用' },
-  { id:'kounenhou', name:'厚生年金保険法', short:'厚年' },
+  // --- 社会保険科目（優先）---
   { id:'kenpohou', name:'健康保険法', short:'健保' },
+  { id:'kounenhou', name:'厚生年金保険法', short:'厚年' },
   { id:'kokunenhou', name:'国民年金法', short:'国年' },
-  { id:'aneihou', name:'労働安全衛生法', short:'安衛' },
   { id:'shakai_ippan', name:'社会保険一般常識', short:'社一' },
-  { id:'choushuuhou', name:'労働保険徴収法', short:'徴収' },
+  // --- 労働科目 ---
+  { id:'koyouhou', name:'雇用保険法', short:'雇用' },
   { id:'rousaihou', name:'労災保険法', short:'労災' },
-  { id:'roudou_ippan', name:'労働一般常識', short:'労一' },
+  { id:'choushuuhou', name:'労働保険徴収法', short:'徴収' },
   { id:'roukihou', name:'労働基準法', short:'労基' },
+  { id:'aneihou', name:'労働安全衛生法', short:'安衛' },
+  { id:'roudou_ippan', name:'労働一般常識', short:'労一' },
 ];
 
 // 試験直前期: まるごと過去問集［2026年合格目標］ PDFより。各エントリ = [種別(S=選択式/T=択一式), 年度, 分, 問数]
@@ -3603,7 +3606,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-W');
+  autoBackupOnce('v2026-6-21-X');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
