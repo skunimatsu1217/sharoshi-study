@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260621y';
+  const BUILD = '20260703a';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-6-21-Y</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-A</div>
   </div>
 </div>
 
@@ -650,8 +650,9 @@ const GOAL_START = '2026-04-13';
 const GOAL_END   = '2026-08-20';
 const GOAL_DAYS  = Math.round((new Date(GOAL_END) - new Date(GOAL_START)) / 86400000) + 1; // 130日
 
+// 動画インプットは削除（残り50日・時間短縮のため）。概要理解は総まとめ講座「今日のまとめ」で代替。
+// ※ kihon データは章対応(単元グループ)の基準として引き続き使用。
 const GOALS = [
-  { key:'video',   icon:'📹', label:'基本動画+テキスト', rounds:1,  totalUnits:174, minPerUnit:42, dataKey:'kihon',  progKey:'kihon'  },
   { key:'smart',   icon:'✏️', label:'スマート問題集',   rounds:8,  totalUnits:173, minPerUnit:11, dataKey:'smart',  progKey:'smart'  },
   { key:'past',    icon:'📝', label:'セレクト過去問',   rounds:7,  totalUnits:45,  minPerUnit:13, dataKey:'past',   progKey:'past'   },
   { key:'select',  icon:'🎯', label:'選択式ポイント',   rounds:3,  totalUnits:44,  minPerUnit:14, dataKey:'select', progKey:'select' },
@@ -3606,7 +3607,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-6-21-Y');
+  autoBackupOnce('v2026-7-3-A');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
