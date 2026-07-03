@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260703b';
+  const BUILD = '20260703c';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-B</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-C</div>
   </div>
 </div>
 
@@ -464,7 +464,7 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- カテゴリフィルタ -->
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
       <button class="cat-filter-btn" data-cat="all" onclick="setTodayCatFilter('all')" style="display:none">全て</button>
-      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')">📹 動画+テキスト</button>
+      <button class="cat-filter-btn" data-cat="video" onclick="setTodayCatFilter('video')" style="display:none">📹 動画+テキスト</button>
       <button class="cat-filter-btn" data-cat="textinitial" onclick="setTodayCatFilter('textinitial')">📖 テキスト：復習+スマート</button>
       <button class="cat-filter-btn" data-cat="smart" onclick="setTodayCatFilter('smart')" style="display:none">✏️ スマート</button>
       <button class="cat-filter-btn" data-cat="past" onclick="setTodayCatFilter('past')">📝 過去問</button>
@@ -2176,39 +2176,45 @@ function loadToday() {
       (rawTasks.length === 0 ? '勉強内容を追加しましょう' : '該当カテゴリのタスクはありません') +
       '</p></div>';
   } else {
+    const secHead = (label, doneN, total) => `<div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">${label} <span style="opacity:0.7">(${doneN}/${total})</span></div>`;
     const renderSection = (sec) => {
-      if (sec.key === 'smart') return ''; // 標準のスマート問題集セクションは非表示
+      if (sec.key === 'smart' || sec.key === 'video') return ''; // スマート標準・動画は非表示
       const list = buckets[sec.key];
       if (!list.length) return '';
-      const undone = list.filter(({ t }) => !t.done);
-      const done = list.filter(({ t }) => t.done);
-      let sorted;
+      const doneN = list.filter(({ t }) => t.done).length;
+
       if (sec.key === 'textinitial') {
-        // 復習を試行回数(reviewIdx)の少ない＝習熟度が低い順に。スマート問題集は対応復習の直下を維持
-        const reviews = list.filter(({ t }) => /^🔄/.test(t.text))
-          .sort((a, b) => ((a.t.reviewIdx || 0) - (b.t.reviewIdx || 0)));
+        // 単元別: 復習＋スマートのペアを 科目→章 順に並べ、単元(基X-Y)ごとに見出し＋過去問/選択式を案内
+        const subjOrder = {}; SUBJECTS.forEach((s, i) => subjOrder[s.id] = i);
+        const reviews = list.filter(({ t }) => /^🔄/.test(t.text)).sort((a, b) =>
+          ((subjOrder[a.t.subject] ?? 99) - (subjOrder[b.t.subject] ?? 99)) ||
+          ((extractChapterNum(a.t.text) ?? 999) - (extractChapterNum(b.t.text) ?? 999)));
         const companions = list.filter(({ t }) => t.smartPair);
         const placed = new Set();
-        sorted = [];
+        let inner = '', lastUnit = null;
         reviews.forEach(r => {
-          sorted.push(r); placed.add(r);
-          const c = companions.find(c => !placed.has(c)
-            && c.t.pairedReviewItemId === r.t.reviewItemId);
-          if (c) { sorted.push(c); placed.add(c); }
+          const ch = extractChapterNum(r.t.text);
+          const unit = getUnitForChapter(r.t.subject, ch);
+          const sn = SUBJECTS.find(s => s.id === r.t.subject)?.short || '';
+          const uKey = unit ? `${r.t.subject}:${unit.x}-${unit.y}` : `${r.t.subject}:other`;
+          if (uKey !== lastUnit) {
+            lastUnit = uKey;
+            inner += unit
+              ? `<div style="font-size:11px;font-weight:700;color:var(--primary);padding:4px 8px;background:#eef2ff;border-radius:4px;margin:8px 0 3px">${sn}【基${unit.x}-${unit.y}】${esc(unit.topic.slice(0, 16))}<span style="font-weight:400;color:var(--text-light)"> → 📝過去問${unit.pastNum}${unit.selNum ? ` 🎯選択式${unit.selNum}` : ''}</span></div>`
+              : `<div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin:8px 0 3px">${sn} その他</div>`;
+          }
+          inner += renderTask(r); placed.add(r);
+          const c = companions.find(c => !placed.has(c) && c.t.pairedReviewItemId === r.t.reviewItemId);
+          if (c) { inner += renderTask(c); placed.add(c); }
         });
-        // ペア相手のいない残り（孤立スマート・その他）は末尾へ
-        list.forEach(x => { if (!placed.has(x)) sorted.push(x); });
-      } else {
-        sorted = [...undone, ...done];
+        list.forEach(x => { if (!placed.has(x)) inner += renderTask(x); });
+        return `<div style="margin-top:10px">${secHead(sec.label, doneN, list.length)}${inner}</div>`;
       }
-      return `
-        <div style="margin-top:10px">
-          <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">
-            ${sec.label} <span style="opacity:0.7">(${done.length}/${list.length})</span>
-          </div>
-          ${sorted.map(renderTask).join('')}
-        </div>
-      `;
+
+      const undone = list.filter(({ t }) => !t.done);
+      const done = list.filter(({ t }) => t.done);
+      const sorted = [...undone, ...done];
+      return `<div style="margin-top:10px">${secHead(sec.label, doneN, list.length)}${sorted.map(renderTask).join('')}</div>`;
     };
     // 2段式: ①インプット(動画+テキスト・テキスト復習+スマート) / ②アウトプット(過去問・選択式)
     const TIER1 = ['video', 'textinitial'];
@@ -3464,6 +3470,22 @@ function parseKihonRange(title) {
   const m = (title || '').match(/(\d+)\s*[-〜~]\s*(\d+)/);
   return m ? [Number(m[1]), Number(m[2])] : null;
 }
+// 章番号 → 単元（基X-Y / 対応する過去問・選択式番号 / トピック）
+function getUnitForChapter(subjId, chapNum) {
+  if (chapNum == null) return null;
+  const cd = (typeof COURSE_DATA !== 'undefined') ? COURSE_DATA : {};
+  const past = (cd.past && cd.past[subjId]) || [];
+  const sel = (cd.select && cd.select[subjId]) || [];
+  const selByRange = {};
+  sel.forEach(e => { const r = parseKihonRange(e[1]); if (r) selByRange[r[0] + '-' + r[1]] = e[0]; });
+  for (const e of past) {
+    const r = parseKihonRange(e[1]);
+    if (r && chapNum >= r[0] && chapNum <= r[1]) {
+      return { x: r[0], y: r[1], pastNum: e[0], selNum: selByRange[r[0] + '-' + r[1]], topic: (e[1] || '').replace(/^[^:：]*[:：]\s*/, '') };
+    }
+  }
+  return null;
+}
 // 単元の復習をまとめて今日タブに表示
 function jumpUnitToToday(subjId, x, y) {
   const today = todayStr();
@@ -3724,7 +3746,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-3-B');
+  autoBackupOnce('v2026-7-3-C');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
