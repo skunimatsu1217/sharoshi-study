@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260703a';
+  const BUILD = '20260703b';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,13 +296,14 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-A</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-B</div>
   </div>
 </div>
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
   <button class="tab-btn" data-tab="examsched">試験日まで</button>
+  <button class="tab-btn" data-tab="unitgroup">単元別</button>
   <button class="tab-btn" data-tab="reviewprog">復習進捗</button>
   <button class="tab-btn" data-tab="chokuzen">試験直前期</button>
   <button class="tab-btn" data-tab="progress" style="display:none">進捗</button>
@@ -538,6 +539,17 @@ textarea { resize: vertical; min-height: 60px; }
   <!-- ==================== -->
   <div id="examsched" class="tab-content">
     <div id="examsched-body"></div>
+  </div>
+
+  <!-- ==================== -->
+  <!-- 単元別               -->
+  <!-- ==================== -->
+  <div id="unitgroup" class="tab-content">
+    <div class="card" style="background:linear-gradient(135deg,#eef2ff,#fdf2f8)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">🧩 単元別まとめ学習</div>
+      <div style="font-size:11px;color:var(--text-light);line-height:1.6">基本講座の章範囲ごとに、テキスト復習・スマート問題集・過去問・選択式をひとまとめに。科目ラベルをタップ→単元を開いて、関連教材をまとめて学習できます。「→今日」でその単元の復習を今日タブに表示します。</div>
+    </div>
+    <div id="unitgroup-list"></div>
   </div>
 
   <!-- ==================== -->
@@ -3441,6 +3453,111 @@ function loadExamSchedule() {
     </div>`;
 }
 
+// ==== 単元別まとめ学習（基本講座の章範囲でグループ化） ====
+const UNITG_EXPANDED = new Set();
+function toggleUnitSubject(id) {
+  if (UNITG_EXPANDED.has(id)) UNITG_EXPANDED.delete(id); else UNITG_EXPANDED.add(id);
+  loadUnitGroups();
+}
+// 過去問/選択式タイトルの「基X-Y:」から章範囲を取得
+function parseKihonRange(title) {
+  const m = (title || '').match(/(\d+)\s*[-〜~]\s*(\d+)/);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+// 単元の復習をまとめて今日タブに表示
+function jumpUnitToToday(subjId, x, y) {
+  const today = todayStr();
+  const items = getData('review_items', []).filter(it => it.subject === subjId && isActiveTextReview(it));
+  const forced = getData('force_review_' + today, []);
+  let n = 0;
+  items.forEach(it => {
+    const c = extractChapterNum(it.text);
+    if (c != null && c >= x && c <= y) {
+      if (!forced.map(String).includes(String(it.id))) forced.push(it.id);
+      n++;
+    }
+  });
+  setData('force_review_' + today, forced);
+  VIEW_DATE = null;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const tb = document.querySelector('.tab-btn[data-tab="today"]'); if (tb) tb.classList.add('active');
+  const tc = document.getElementById('today'); if (tc) tc.classList.add('active');
+  TODAY_CAT_FILTER = 'all';
+  loadToday();
+  showToast(n > 0 ? `この単元の復習${n}件を今日に表示しました` : 'この範囲の復習項目はまだ登録されていません');
+}
+
+function loadUnitGroups() {
+  const el = document.getElementById('unitgroup-list');
+  if (!el) return;
+  const cd = (typeof COURSE_DATA !== 'undefined') ? COURSE_DATA : {};
+  const items = getData('review_items', []).filter(isActiveTextReview);
+  const revMap = {}; // subject -> chapterNum -> item
+  items.forEach(it => {
+    const c = extractChapterNum(it.text);
+    if (c != null) { (revMap[it.subject] = revMap[it.subject] || {})[c] = it; }
+  });
+
+  el.innerHTML = SUBJECTS.map(s => {
+    const past = (cd.past && cd.past[s.id]) || [];
+    if (!past.length) return '';
+    const expanded = UNITG_EXPANDED.has(s.id);
+    // 科目サマリ（全章の復習達成）
+    const sMap = revMap[s.id] || {};
+    let sDone = 0, sTot = 0;
+    Object.values(sMap).forEach(it => { const cfg = getItemReviewConfig(it); sDone += Math.min(getCompletedPassCount(it), cfg.passes); sTot += cfg.passes; });
+    const header = `<div onclick="toggleUnitSubject('${s.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;color:var(--primary);padding:9px 10px;background:#eef2ff;border-radius:6px;margin:10px 0 4px">
+      <span>${expanded ? '▼' : '▶'} ${s.name}（${past.length}単元）</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-light)">復習 ${sDone}/${sTot}回</span>
+    </div>`;
+    if (!expanded) return header;
+
+    const sel = (cd.select && cd.select[s.id]) || [];
+    const selByRange = {};
+    sel.forEach(e => { const r = parseKihonRange(e[1]); if (r) selByRange[r[0] + '-' + r[1]] = e[0]; });
+    const kihon = (cd.kihon && cd.kihon[s.id]) || [];
+
+    const groups = past.map(e => {
+      const pnum = e[0], ptitle = e[1] || '';
+      const r = parseKihonRange(ptitle);
+      const topic = ptitle.replace(/^[^:：]*[:：]\s*/, '');
+      if (!r) {
+        return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin:6px 0;font-size:12px">📝 セレクト過去問${pnum}（対応範囲不明）</div>`;
+      }
+      const x = r[0], y = r[1];
+      let revRows = '', doneP = 0, totP = 0, regN = 0;
+      for (let n = x; n <= y; n++) {
+        const kt = ((kihon.find(k => k[0] === n)) || [])[1] || '';
+        const it = sMap[n];
+        if (it) {
+          const cfg = getItemReviewConfig(it);
+          const dc = getCompletedPassCount(it);
+          doneP += Math.min(dc, cfg.passes); totP += cfg.passes; regN++;
+          revRows += `<div style="font-size:11px;padding:2px 0">・第${n}章 ${esc(kt.slice(0, 16))} <strong>${dc}/${cfg.passes}回</strong></div>`;
+        } else {
+          revRows += `<div style="font-size:11px;padding:2px 0;color:var(--text-light)">・第${n}章 ${esc(kt.slice(0, 16))}（未登録）</div>`;
+        }
+      }
+      const selNum = selByRange[x + '-' + y];
+      const jump = regN > 0 ? `<button onclick="jumpUnitToToday('${s.id}',${x},${y})" style="flex-shrink:0;padding:5px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1.5px solid var(--primary);background:#fff;color:var(--primary);cursor:pointer">→今日</button>` : '';
+      return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:6px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div style="font-size:12px;font-weight:700;min-width:0">【基${x}-${y}】${esc(topic.slice(0, 22))}</div>
+          ${jump}
+        </div>
+        <div style="font-size:11px;color:var(--text-light);margin:4px 0 2px">📖 テキスト復習 第${x}〜${y}章（${doneP}/${totP}回）</div>
+        ${revRows}
+        <div style="font-size:11px;margin-top:5px;padding-top:5px;border-top:1px dashed rgba(0,0,0,0.1);line-height:1.7">
+          ✏️ スマート問題集 第${x}〜${y}章<br>
+          📝 セレクト過去問${pnum}${selNum ? `　🎯 選択式${selNum}` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    return header + `<div style="margin-bottom:8px">${groups}</div>`;
+  }).join('');
+}
+
 // ==== 復習進捗（テキスト復習の全体進捗） ====
 let REVIEWPROG_FILTER = 'all';
 const REVIEWPROG_EXPANDED = new Set(); // 展開中の科目id
@@ -3607,7 +3724,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-3-A');
+  autoBackupOnce('v2026-7-3-B');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
@@ -3646,6 +3763,7 @@ function init() {
       if (btn.dataset.tab === 'chokuzen') loadChokuzen();
       if (btn.dataset.tab === 'reviewprog') loadReviewProgress();
       if (btn.dataset.tab === 'examsched') loadExamSchedule();
+      if (btn.dataset.tab === 'unitgroup') loadUnitGroups();
     });
   });
 
@@ -3656,6 +3774,7 @@ function init() {
   loadChokuzen();
   loadReviewProgress();
   loadExamSchedule();
+  loadUnitGroups();
 }
 
 init();
