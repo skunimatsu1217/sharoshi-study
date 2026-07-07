@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260703c';
+  const BUILD = '20260703d';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-C</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-D</div>
   </div>
 </div>
 
@@ -415,50 +415,6 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
       <button class="btn btn-primary btn-block btn-sm" style="margin-top:8px" onclick="addGoalTasksToToday()">＋ 今日の目標タスクを追加</button>
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:6px;color:#ea580c;border-color:#ea580c" onclick="addExtraTasks()">🔥 今日はもっと頑張る (+60分)</button>
-    </div>
-
-    <!-- 勉強時間の可視化 -->
-    <div class="card" style="background:linear-gradient(135deg,#fff7ed,#fef3c7)">
-      <div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:8px">⏱ 勉強時間の進捗</div>
-
-      <!-- 1000時間目標トラッカー -->
-      <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:700;color:#7c2d12">🎯 1000時間目標</span>
-          <span id="hours-1000-pct" style="font-size:18px;font-weight:800;color:#b45309">0%</span>
-        </div>
-        <div class="progress-total-bar"><div class="progress-total-fill" id="hours-1000-bar" style="background:linear-gradient(90deg,#f59e0b,#dc2626)"></div></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span id="hours-1000-done" style="font-size:13px;font-weight:700">0h / 1000h</span>
-          <span id="hours-1000-remain" style="font-size:11px;color:var(--text-light)">残り 1000h</span>
-        </div>
-        <div style="display:flex;gap:4px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.1)">
-          <span style="font-size:11px;color:var(--text-light);flex-shrink:0">手動入力:</span>
-          <input type="number" id="manual-hours-input" step="0.5" min="0" placeholder="累計時間"
-            style="flex:1;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:6px"
-            onchange="setManualHours(this.value)">
-          <span style="font-size:11px;color:var(--text-light);flex-shrink:0">時間</span>
-        </div>
-        <div style="display:flex;gap:4px;margin-top:6px">
-          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px" onclick="addManualHours(0.5)">+0.5h</button>
-          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px" onclick="addManualHours(1)">+1h</button>
-          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px" onclick="addManualHours(3)">+3h</button>
-          <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;padding:4px;color:var(--danger);border-color:var(--danger)" onclick="addManualHours(-0.5)">−0.5h</button>
-        </div>
-        <div id="hours-1000-pace" style="font-size:10px;color:var(--text-light);text-align:center;margin-top:6px"></div>
-        <div id="hours-1000-delay" style="font-size:11px;text-align:center;margin-top:8px;padding:6px 8px;background:rgba(255,255,255,0.7);border-radius:6px;line-height:1.5"></div>
-      </div>
-
-      <div style="font-size:11px;color:var(--text-light);font-weight:700;margin-bottom:4px">教材別の進捗（自動算出）</div>
-      <div id="time-progress-list" style="font-size:12px;line-height:1.7"></div>
-      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.15)">
-        <div style="display:flex;justify-content:space-between;font-weight:700">
-          <span>教材別累計</span>
-          <span><span id="time-progress-done">0</span> / <span id="time-progress-total">0</span> 時間</span>
-        </div>
-        <div class="progress-total-bar" style="margin-top:6px"><div class="progress-total-fill" id="time-progress-bar"></div></div>
-        <div id="time-progress-pct" style="text-align:center;font-size:11px;margin-top:4px;color:var(--text-light)">0%</div>
-      </div>
     </div>
 
     <!-- カテゴリフィルタ -->
@@ -1863,6 +1819,8 @@ function addGoalTasksToToday() {
 // ==== TODAY ====
 // Compute actual completed study time from progress_data_v2
 function loadTimeProgress() {
+  // 勉強時間の進捗カードは削除済み。要素が無ければ何もしない。
+  if (!document.getElementById('time-progress-list')) return;
   const progress = getData('progress_data_v2', DEFAULT_PROGRESS);
   let totalNeeded = 0, totalDone = 0;
   const rows = [];
@@ -3746,7 +3704,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-3-C');
+  autoBackupOnce('v2026-7-3-D');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
