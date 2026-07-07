@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260703d';
+  const BUILD = '20260703e';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-D</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-E</div>
   </div>
 </div>
 
@@ -402,14 +402,9 @@ textarea { resize: vertical; min-height: 60px; }
       <div id="today-summary" style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.1);font-size:11px;line-height:1.5"></div>
     </div>
 
-    <!-- 130日間の目標 -->
-    <div class="card" style="background:linear-gradient(135deg,#e8f0fe,#f3e8fd)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:700;color:var(--primary)">🎯 130日間の目標（4/13〜）</div>
-        <span id="goals-remaining" style="font-size:11px;color:var(--text-light)">残り---日</span>
-      </div>
-      <div id="goals-list" style="font-size:12px;line-height:1.7"></div>
-      <div style="display:flex;gap:6px;margin-top:10px">
+    <!-- 平日/休日 + タスク追加 -->
+    <div class="card">
+      <div style="display:flex;gap:6px">
         <button id="day-mode-weekday" class="btn btn-outline btn-sm" style="flex:1" onclick="setDayMode('weekday')">平日 3h</button>
         <button id="day-mode-weekend" class="btn btn-outline btn-sm" style="flex:1" onclick="setDayMode('weekend')">休日 8h</button>
       </div>
@@ -1475,7 +1470,8 @@ function calcDailyQuota() {
 
 function loadGoals() {
   const { daysPassed, daysRemaining, endDate, items } = calcDailyQuota();
-  document.getElementById('goals-remaining').textContent = `残り ${daysRemaining}日 / ${daysPassed}日経過`;
+  const remEl = document.getElementById('goals-remaining');
+  if (remEl) remEl.textContent = `残り ${daysRemaining}日 / ${daysPassed}日経過`;
 
   const total = items.reduce((s, it) => s + it.perDayMin, 0);
   let html = '';
@@ -1490,7 +1486,8 @@ function loadGoals() {
   <div style="font-size:11px;color:var(--text-light);margin-top:2px">
     平均必要量: 約${total}分/日（目標ペース）
   </div>`;
-  document.getElementById('goals-list').innerHTML = html;
+  const glEl = document.getElementById('goals-list');
+  if (glEl) glEl.innerHTML = html;
 
   // Highlight active day-mode button
   const wd = document.getElementById('day-mode-weekday');
@@ -3704,7 +3701,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-3-D');
+  autoBackupOnce('v2026-7-3-E');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
