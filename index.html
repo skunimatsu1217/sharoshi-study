@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260703e';
+  const BUILD = '20260708a';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-3-E</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-8-A</div>
   </div>
 </div>
 
@@ -411,6 +411,9 @@ textarea { resize: vertical; min-height: 60px; }
       <button class="btn btn-primary btn-block btn-sm" style="margin-top:8px" onclick="addGoalTasksToToday()">＋ 今日の目標タスクを追加</button>
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:6px;color:#ea580c;border-color:#ea580c" onclick="addExtraTasks()">🔥 今日はもっと頑張る (+60分)</button>
     </div>
+
+    <!-- 総まとめ講座（概要理解） -->
+    <div id="soumatome-today"></div>
 
     <!-- カテゴリフィルタ -->
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
@@ -527,7 +530,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div id="chokuzen" class="tab-content">
     <div class="card" style="background:linear-gradient(135deg,#fff1f2,#fef3c7)">
       <div style="font-size:14px;font-weight:700;color:#b45309;margin-bottom:4px">🔥 試験直前期</div>
-      <div style="font-size:12px;color:var(--text-light);line-height:1.6">開始目安：7月中旬〜。まるごと過去問集＋総まとめ講座を<strong>各3周</strong>で仕上げます。各行の①②③が周回です。</div>
+      <div style="font-size:12px;color:var(--text-light);line-height:1.6">開始目安：7月中旬〜。まるごと過去問集を<strong>3周</strong>で仕上げます。各行の①②③が周回です。（総まとめ講座は「今日」タブに移動しました）</div>
       <div id="chokuzen-progress" style="margin-top:8px;font-size:12px;font-weight:700"></div>
     </div>
     <div id="chokuzen-list"></div>
@@ -2028,6 +2031,7 @@ function deleteSelectedTasks() {
 function loadToday() {
   loadGoals();
   loadTimeProgress();
+  loadSoumatome();
   updateSelectModeUI();
   const ts = getViewDate();
   const isToday = (ts === todayStr());
@@ -3203,7 +3207,59 @@ function loadReview() {
   }
 }
 
-// ==== 試験直前期 (まるごと過去問集 + 総まとめ講座 を各3周) ====
+// ==== 総まとめ講座（今日タブ・概要理解のチェックリスト） ====
+let SOUMATOME_OPEN = false;
+function toggleSoumatomeOpen() { SOUMATOME_OPEN = !SOUMATOME_OPEN; loadSoumatome(); }
+function toggleSoumatome(key) {
+  const d = getData('soumatome_done', {});
+  if (d[key]) delete d[key]; else d[key] = true;
+  setData('soumatome_done', d);
+  loadSoumatome();
+}
+function soumatomeSections() {
+  const cd = (typeof COURSE_DATA !== 'undefined') ? COURSE_DATA : {};
+  const fromData = (key, prefix) => (cd[key] ? Object.keys(cd[key]).map(k => {
+    const e = cd[key][k];
+    const title = Array.isArray(e) ? e[0] : e;
+    const mins = Array.isArray(e) ? e[1] : null;
+    return { key: `${prefix}:${k}`, label: title + (mins ? `（${mins}分）` : '') };
+  }) : []);
+  return [
+    { title: '📝 今日のまとめ（科目別）', items: fromData('matome', 'mat') },
+    { title: '📘 総まとめ（労務管理・社会保障制度・計算）', items: fromData('summary', 'sum') },
+    { title: '🔀 横断整理', items: fromData('oudan', 'oud') },
+  ].filter(s => s.items.length);
+}
+function loadSoumatome() {
+  const el = document.getElementById('soumatome-today');
+  if (!el) return;
+  const secs = soumatomeSections();
+  const done = getData('soumatome_done', {});
+  let total = 0, dc = 0;
+  const body = secs.map(s => {
+    const rows = s.items.map(it => {
+      total++; const on = !!done[it.key]; if (on) dc++;
+      return `<div class="task-item ${on ? 'done' : ''}">
+        <div class="task-check ${on ? 'checked' : ''}" onclick="toggleSoumatome('${it.key}')">${on ? '✓' : ''}</div>
+        <div class="task-text">${esc(it.label)}</div>
+      </div>`;
+    }).join('');
+    const sd = s.items.filter(it => done[it.key]).length;
+    return `<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 8px;background:#f0f4f9;border-radius:4px;margin-bottom:4px">${s.title} (${sd}/${s.items.length})</div>${rows}</div>`;
+  }).join('');
+  // 総数カウントは折りたたみ時にも出すため先に集計
+  total = 0; dc = 0;
+  secs.forEach(s => s.items.forEach(it => { total++; if (done[it.key]) dc++; }));
+  el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#f5f3ff,#eef2ff)">
+    <div onclick="toggleSoumatomeOpen()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;font-weight:700;color:var(--primary)">📘 総まとめ講座（概要理解）</div>
+      <div style="font-size:11px;color:var(--text-light)">${dc}/${total} ${SOUMATOME_OPEN ? '▲' : '▼'}</div>
+    </div>
+    ${SOUMATOME_OPEN ? `<div style="margin-top:6px">${body}</div>` : '<div style="font-size:11px;color:var(--text-light);margin-top:4px">タップで開く。各科目の全体像はまず「今日のまとめ」から。</div>'}
+  </div>`;
+}
+
+// ==== 試験直前期 (まるごと過去問集) ====
 // 完了状態は chokuzen_v1 = { "<itemKey>#<round>": true } で保持
 const CHOKUZEN_ROUNDS = MARUGOTO_ROUNDS; // 3周
 
@@ -3221,19 +3277,7 @@ function buildChokuzenSections() {
     if (rows.length) sections.push({ group: 'まるごと過去問集', title: `📚 ${s.name}`, items: rows });
   });
 
-  // --- 総まとめ講座 ---
-  const fromData = (key, prefix) => (cd[key] ? Object.keys(cd[key]).map(k => {
-    const e = cd[key][k];
-    const title = Array.isArray(e) ? e[0] : e;
-    const mins = Array.isArray(e) ? e[1] : null;
-    return { key: `${prefix}:${k}`, label: title + (mins ? `（${mins}分）` : '') };
-  }) : []);
-  [
-    { title: '📘 総まとめ（労務管理・社会保障制度・計算）', items: fromData('summary', 'sum') },
-    { title: '🔀 横断整理', items: fromData('oudan', 'oud') },
-    { title: '📝 今日のまとめ（科目別）', items: fromData('matome', 'mat') },
-  ].forEach(sec => { if (sec.items.length) sections.push({ group: '総まとめ講座', ...sec }); });
-
+  // 総まとめ講座は「今日」タブへ移動（試験直前期はまるごと過去問集のみ）
   return sections;
 }
 
@@ -3701,7 +3745,7 @@ document.addEventListener('click', e => {
 // ==== INIT ====
 function init() {
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-3-E');
+  autoBackupOnce('v2026-7-8-A');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
