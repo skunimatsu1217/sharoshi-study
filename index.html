@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260708b';
+  const BUILD = '20260708c';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,13 +296,12 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-8-B</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-8-C</div>
   </div>
 </div>
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
-  <button class="tab-btn" data-tab="examsched">試験日まで</button>
   <button class="tab-btn" data-tab="unitgroup">単元別</button>
   <button class="tab-btn" data-tab="reviewprog">復習進捗</button>
   <button class="tab-btn" data-tab="chokuzen">試験直前期</button>
@@ -486,13 +485,6 @@ textarea { resize: vertical; min-height: 60px; }
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('review-add-modal')">＋ 学習完了を記録</button>
     <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="dedupReviewItems()">🧹 復習の重複を整理</button>
-  </div>
-
-  <!-- ==================== -->
-  <!-- 試験日まで             -->
-  <!-- ==================== -->
-  <div id="examsched" class="tab-content">
-    <div id="examsched-body"></div>
   </div>
 
   <!-- ==================== -->
@@ -3757,7 +3749,7 @@ function init() {
   // 学習順の優先度を適用（試験前2週間なら労基・労災・安衛を先頭にブースト）
   applySubjectPriority();
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-8-B');
+  autoBackupOnce('v2026-7-8-C');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
@@ -3795,7 +3787,6 @@ function init() {
       if (btn.dataset.tab === 'review') loadReview();
       if (btn.dataset.tab === 'chokuzen') loadChokuzen();
       if (btn.dataset.tab === 'reviewprog') loadReviewProgress();
-      if (btn.dataset.tab === 'examsched') loadExamSchedule();
       if (btn.dataset.tab === 'unitgroup') loadUnitGroups();
     });
   });
@@ -3806,7 +3797,6 @@ function init() {
   loadReview();
   loadChokuzen();
   loadReviewProgress();
-  loadExamSchedule();
   loadUnitGroups();
 }
 
