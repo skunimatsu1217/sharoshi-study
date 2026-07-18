@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260708a';
+  const BUILD = '20260708b';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-8-A</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-8-B</div>
   </div>
 </div>
 
@@ -625,20 +625,30 @@ const GOALS = [
 ];
 
 // 並び順 = 優先順位（今日の目標タスク生成・各タブの表示順）。社会保険科目を優先して先頭に配置。
+// 学習順（優先順位）。試験前2週間になると労基・労災・安衛を自動で先頭にブースト（applySubjectPriority）
 const SUBJECTS = [
-  // --- 社会保険科目（優先）---
-  { id:'kenpohou', name:'健康保険法', short:'健保' },
+  { id:'kenpohou', name:'健康保険法', short:'健保' },     // ①
   { id:'kounenhou', name:'厚生年金保険法', short:'厚年' },
   { id:'kokunenhou', name:'国民年金法', short:'国年' },
-  { id:'shakai_ippan', name:'社会保険一般常識', short:'社一' },
-  // --- 労働科目 ---
-  { id:'koyouhou', name:'雇用保険法', short:'雇用' },
-  { id:'rousaihou', name:'労災保険法', short:'労災' },
-  { id:'choushuuhou', name:'労働保険徴収法', short:'徴収' },
-  { id:'roukihou', name:'労働基準法', short:'労基' },
-  { id:'aneihou', name:'労働安全衛生法', short:'安衛' },
+  { id:'koyouhou', name:'雇用保険法', short:'雇用' },     // ②
   { id:'roudou_ippan', name:'労働一般常識', short:'労一' },
+  { id:'shakai_ippan', name:'社会保険一般常識', short:'社一' },
+  { id:'roukihou', name:'労働基準法', short:'労基' },     // ④（直前2週間でブースト）
+  { id:'rousaihou', name:'労災保険法', short:'労災' },
+  { id:'aneihou', name:'労働安全衛生法', short:'安衛' },
+  { id:'choushuuhou', name:'労働保険徴収法', short:'徴収' }, // 未指定のため末尾
 ];
+// 試験前2週間(残り14日以内)は 労基・労災・安衛 を先頭に。
+const LAST2W_BOOST = ['roukihou', 'rousaihou', 'aneihou'];
+function applySubjectPriority() {
+  const daysToExam = Math.round((new Date(GOAL_END) - new Date(todayStr())) / 86400000);
+  const boost = daysToExam <= 14 && daysToExam >= 0;
+  SUBJECTS.sort((a, b) => {
+    const ab = boost && LAST2W_BOOST.includes(a.id) ? 0 : 1;
+    const bb = boost && LAST2W_BOOST.includes(b.id) ? 0 : 1;
+    return ab - bb; // 安定ソート: ブースト対象を前へ、他は元順維持
+  });
+}
 
 // 試験直前期: まるごと過去問集［2026年合格目標］ PDFより。各エントリ = [種別(S=選択式/T=択一式), 年度, 分, 問数]
 const MARUGOTO_DATA = {"roukihou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,21,7],["T",2021,21,7],["T",2022,21,7],["T",2023,21,7],["T",2024,21,7]],"aneihou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,9,3],["T",2021,9,3],["T",2022,9,3],["T",2023,9,3],["T",2024,9,3]],"rousaihou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,21,7],["T",2021,21,7],["T",2022,21,7],["T",2023,21,7],["T",2024,21,7]],"koyouhou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,21,7],["T",2021,21,7],["T",2022,21,7],["T",2023,21,7],["T",2024,21,7]],"choushuuhou":[["T",2020,18,6],["T",2021,18,6],["T",2022,18,6],["T",2023,18,6],["T",2024,18,6]],"roudou_ippan":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,12,4],["T",2021,12,4],["T",2022,12,4],["T",2023,12,4],["T",2024,12,4]],"kenpohou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,30,10],["T",2021,30,10],["T",2022,30,10],["T",2023,30,10],["T",2024,30,10]],"kokunenhou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,30,10],["T",2021,30,10],["T",2022,30,10],["T",2023,30,10],["T",2024,30,10]],"kounenhou":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,30,10],["T",2021,30,10],["T",2022,30,10],["T",2023,30,10],["T",2024,30,10]],"shakai_ippan":[["S",2020,10,1],["S",2021,10,1],["S",2022,10,1],["S",2023,10,1],["S",2024,10,1],["T",2020,18,6],["T",2021,18,6],["T",2022,18,6],["T",2023,18,6],["T",2024,18,6]]};
@@ -3744,8 +3754,10 @@ document.addEventListener('click', e => {
 
 // ==== INIT ====
 function init() {
+  // 学習順の優先度を適用（試験前2週間なら労基・労災・安衛を先頭にブースト）
+  applySubjectPriority();
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-8-A');
+  autoBackupOnce('v2026-7-8-B');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
