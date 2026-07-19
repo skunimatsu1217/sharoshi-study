@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260708c';
+  const BUILD = '20260719a';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-8-C</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-A</div>
   </div>
 </div>
 
@@ -400,6 +400,9 @@ textarea { resize: vertical; min-height: 60px; }
       <div class="progress-total-bar" style="margin-top:6px"><div class="progress-total-fill" id="today-progress-bar"></div></div>
       <div id="today-summary" style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.1);font-size:11px;line-height:1.5"></div>
     </div>
+
+    <!-- 残り日数・勉強可能時間・優先順位 -->
+    <div id="today-plan-info"></div>
 
     <!-- 平日/休日 + タスク追加 -->
     <div class="card">
@@ -2030,10 +2033,27 @@ function deleteSelectedTasks() {
   showToast(`${cnt}件削除`);
 }
 
+// 残り日数・勉強可能時間(残り日数×5h)・学習優先順位を今日タブに表示
+function renderTodayPlanInfo() {
+  const el = document.getElementById('today-plan-info');
+  if (!el) return;
+  const daysToExam = Math.max(0, Math.round((new Date(GOAL_END) - new Date(todayStr())) / 86400000));
+  const HRS_PER_DAY = 5;
+  const availH = daysToExam * HRS_PER_DAY;
+  const boost = daysToExam <= 14 && daysToExam >= 0;
+  const order = SUBJECTS.map(s => s.short).join(' ▸ ');
+  const em = Number(GOAL_END.split('-')[1]), ed = Number(GOAL_END.split('-')[2]);
+  el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#fff7ed,#fef3c7);padding:10px 12px">
+    <div style="font-size:12px"><strong>📅 試験(${em}/${ed})まで残り <span style="color:#b45309">${daysToExam}日</span></strong>　勉強可能 <strong>${daysToExam}×${HRS_PER_DAY}h ＝ ${availH}h</strong></div>
+    <div style="font-size:11px;color:var(--text-light);margin-top:5px;line-height:1.5">📌 学習優先順位${boost ? ' <span style="color:var(--danger);font-weight:700">（直前2週間ブースト中：労基・労災・安衛を優先）</span>' : ''}<br>${order}</div>
+  </div>`;
+}
+
 function loadToday() {
   loadGoals();
   loadTimeProgress();
   loadSoumatome();
+  renderTodayPlanInfo();
   updateSelectModeUI();
   const ts = getViewDate();
   const isToday = (ts === todayStr());
@@ -3749,7 +3769,7 @@ function init() {
   // 学習順の優先度を適用（試験前2週間なら労基・労災・安衛を先頭にブースト）
   applySubjectPriority();
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-8-C');
+  autoBackupOnce('v2026-7-19-A');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
