@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260719f';
+  const BUILD = '20260719g';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-F</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-G</div>
   </div>
 </div>
 
@@ -465,6 +465,7 @@ textarea { resize: vertical; min-height: 60px; }
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="copyHistoryToClipboard()">📋 学習履歴をコピー (Claude用)</button>
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="cleanupDuplicateTasks()">🧹 日付間のタスク重複を整理</button>
       <button class="btn btn-outline btn-block btn-sm" style="margin-top:8px" onclick="clearTodayReviewTasks()">🗑 今日の復習タスク+復習項目を一括削除</button>
+      <button class="btn btn-block btn-sm" style="margin-top:14px;background:var(--danger);color:#fff;border:none" onclick="resetAllData()">⚠ 全データを削除して0から始める</button>
     </div>
   </div>
 
@@ -3015,30 +3016,19 @@ function importAllData(event) {
 }
 
 function resetAllData() {
-  if (!confirm('⚠ 全ての勉強データをリセットします。\n\n・今日/過去/未来のすべてのタスク\n・進捗データ\n・復習リスト\n・平日/休日モード設定\n\nこの操作は取り消せません。本当にリセットしますか？')) return;
-  if (!confirm('最終確認：本当にすべてのデータを削除しますか？')) return;
+  if (!confirm('⚠ 入力済みの全データを削除して、今日から0からやり直します。\n\n・タスク／進捗／復習リスト／重要度設定\n・AI問題復習・総まとめ・試験直前期のチェック\n・平日/休日設定・単語帳 など すべて\n\nこの操作は取り消せません。本当にリセットしますか？')) return;
+  if (!confirm('最終確認：本当にすべてのデータを削除しますか？（元に戻せません）')) return;
 
+  // アプリのデータは全て 'sharoshi_' プレフィックス。全消去で完全に0から。
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (!key) continue;
-    if (
-      key.startsWith('sharoshi_today_') ||
-      key.startsWith('sharoshi_day_mode_') ||
-      key === 'sharoshi_review_items' ||
-      key === 'sharoshi_progress_data_v2' ||
-      key === 'sharoshi_manual_total_hours'
-    ) {
-      keysToRemove.push(key);
-    }
+    if (key && key.startsWith('sharoshi_')) keysToRemove.push(key);
   }
   keysToRemove.forEach(k => localStorage.removeItem(k));
 
-  VIEW_DATE = null;
-  loadToday();
-  loadReview();
-  loadProgress();
-  showToast(`${keysToRemove.length}件のデータをリセットしました`);
+  showToast(`${keysToRemove.length}件を削除。今日から0スタートです`);
+  setTimeout(() => location.reload(), 700); // 再読込でクリーンに初期化
 }
 
 function addReviewItem() {
@@ -3831,7 +3821,7 @@ function init() {
   // 学習順の優先度を適用（試験前2週間なら労基・労災・安衛を先頭にブースト）
   applySubjectPriority();
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-19-F');
+  autoBackupOnce('v2026-7-19-G');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
