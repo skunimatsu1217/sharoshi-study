@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260719c';
+  const BUILD = '20260719d';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-C</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-D</div>
   </div>
 </div>
 
@@ -440,13 +440,12 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- 余った時間の問題演習 -->
     <div class="card" style="margin-top:12px;background:linear-gradient(135deg,#fff7ed,#fef2f2);padding:10px 12px">
       <div style="font-size:12px;font-weight:700;color:#b45309;margin-bottom:2px">⏱ 時間が余ったら：問題演習</div>
-      <div style="font-size:11px;color:var(--text-light);margin-bottom:8px">予定を終えて時間が余ったら、問題を回して定着。</div>
+      <div style="font-size:11px;color:var(--text-light);margin-bottom:8px">予定を終えて時間が余ったら、問題を回して定着（過去問・選択式・スマート）。</div>
       <button class="btn btn-primary btn-block btn-sm" onclick="addPracticeTasks(60)">🧩 問題演習を今日に追加（+60分）</button>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button class="btn btn-outline btn-sm" style="flex:1" onclick="switchTab('chokuzen')">📚 まるごと過去問集</button>
-        <button class="btn btn-outline btn-sm" style="flex:1" onclick="switchTab('unitgroup')">🧩 単元別</button>
-      </div>
     </div>
+
+    <!-- スケジュール/単元別/復習進捗/まるごと過去問集 をここに統合（unifyIntoToday） -->
+    <div id="unified-anchor"></div>
 
     <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="openModal('today-add-modal')">＋ 勉強内容を追加</button>
     <p style="font-size:11px;color:var(--text-light);margin-top:10px;text-align:center;line-height:1.6">
@@ -2077,11 +2076,49 @@ function renderTodayPlanInfo() {
   </div>`;
 }
 
+// スケジュール/単元別/復習進捗/まるごと過去問集 を「今日」タブに折りたたみ統合（1画面化）
+function unifyIntoToday() {
+  const today = document.getElementById('today');
+  const anchor = document.getElementById('unified-anchor');
+  if (!today || !anchor) return;
+  const sections = [
+    ['schedule', '📅 スケジュール（日別プラン）'],
+    ['unitgroup', '🧩 単元別（教材まとめ）'],
+    ['reviewprog', '📊 復習進捗'],
+    ['chokuzen', '📚 まるごと過去問集（直前期）'],
+  ];
+  sections.forEach(([id, label]) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.unified) return;
+    el.dataset.unified = '1';
+    el.classList.remove('tab-content'); // 常時制御可能に
+    el.style.display = 'none';           // 初期は折りたたみ
+    const head = document.createElement('div');
+    head.className = 'card';
+    head.style.cssText = 'margin-top:10px;padding:11px 12px;cursor:pointer;font-weight:800;color:var(--primary);display:flex;justify-content:space-between;align-items:center';
+    head.innerHTML = `<span>${label}</span><span class="unih">▼</span>`;
+    head.onclick = () => {
+      const open = el.style.display !== 'none';
+      el.style.display = open ? 'none' : 'block';
+      head.querySelector('.unih').textContent = open ? '▼' : '▲';
+    };
+    today.insertBefore(head, anchor);
+    today.insertBefore(el, anchor);
+  });
+  const nav = document.querySelector('.tab-nav');
+  if (nav) nav.style.display = 'none'; // タブバー廃止（1画面）
+}
+
 function loadToday() {
   loadGoals();
   loadTimeProgress();
   loadSoumatome();
   renderTodayPlanInfo();
+  // 統合セクション（スケジュール/単元別/復習進捗/まるごと）も同時更新
+  if (typeof loadSchedule === 'function') loadSchedule();
+  if (typeof loadUnitGroups === 'function') loadUnitGroups();
+  if (typeof loadReviewProgress === 'function') loadReviewProgress();
+  if (typeof loadChokuzen === 'function') loadChokuzen();
   updateSelectModeUI();
   const ts = getViewDate();
   const isToday = (ts === todayStr());
@@ -3775,7 +3812,7 @@ function init() {
   // 学習順の優先度を適用（試験前2週間なら労基・労災・安衛を先頭にブースト）
   applySubjectPriority();
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-19-C');
+  autoBackupOnce('v2026-7-19-D');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
@@ -3820,12 +3857,14 @@ function init() {
 
   loadFlashcards();
   loadProgress();
-  loadToday();
-  loadReview();
   loadChokuzen();
   loadReviewProgress();
   loadUnitGroups();
   loadSchedule();
+  loadReview();
+  // 各セクション描画後に「今日」タブへ統合（1画面化）
+  unifyIntoToday();
+  loadToday();
 }
 
 init();
