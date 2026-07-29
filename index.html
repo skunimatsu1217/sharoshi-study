@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260719d';
+  const BUILD = '20260719e';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,7 +296,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-D</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-E</div>
   </div>
 </div>
 
@@ -404,6 +404,9 @@ textarea { resize: vertical; min-height: 60px; }
 
     <!-- 残り日数・勉強可能時間・優先順位 -->
     <div id="today-plan-info"></div>
+
+    <!-- スケジュール連動: 今日やること（ブロック科目） -->
+    <div id="today-schedule-focus"></div>
 
     <!-- 平日/休日 + タスク追加 -->
     <div class="card">
@@ -2076,6 +2079,45 @@ function renderTodayPlanInfo() {
   </div>`;
 }
 
+// スケジュール連動: 今日のブロック（科目・課題）を今日の勉強内容に反映
+function renderTodayScheduleFocus() {
+  const el = document.getElementById('today-schedule-focus');
+  if (!el) return;
+  const b = currentScheduleBlock();
+  const today = todayStr();
+  const isOff = SCHEDULE_OFFDAYS.has(today);
+  // このブロック科目の復習達成
+  let revDone = 0, revTot = 0;
+  if (b.subjectIds && b.subjectIds.length) {
+    getData('review_items', []).filter(it => b.subjectIds.includes(it.subject) && isActiveTextReview(it))
+      .forEach(it => { const cfg = getItemReviewConfig(it); revDone += Math.min(getCompletedPassCount(it), cfg.passes); revTot += cfg.passes; });
+  }
+  const btn = b.subjectIds && b.subjectIds.length
+    ? `<button class="btn btn-primary btn-block btn-sm" style="margin-top:8px" onclick="addScheduleTasksToToday()">＋ 今日やる科目を投入（復習＋過去問）</button>`
+    : `<button class="btn btn-primary btn-block btn-sm" style="margin-top:8px" onclick="addPracticeTasks(90)">＋ 問題演習を投入（+90分）</button>`;
+  el.innerHTML = `<div class="card" style="border-left:5px solid ${b.color};padding:11px 12px">
+    <div style="font-size:13px;font-weight:800;color:${b.color}">📅 今日やること：${b.title}（〜${mdw(b.deadline)}）</div>
+    <div style="font-size:12px;margin-top:3px">対象科目: <strong>${b.subjects}</strong></div>
+    <div style="font-size:12px;color:var(--text-light);margin-top:2px">${b.task}　／　今日は <strong style="color:${isOff ? '#b45309' : 'var(--primary)'}">${isOff ? `休み ${OFF_HOURS}h` : `仕事日 ${WORK_HOURS}h`}</strong></div>
+    ${revTot ? `<div style="font-size:11px;color:var(--text-light);margin-top:2px">この範囲のテキスト復習 達成 ${revDone}/${revTot}回</div>` : ''}
+    ${btn}
+  </div>`;
+}
+// 今日のブロック科目の「テキスト復習＋過去問・選択式」を今日に投入
+function addScheduleTasksToToday() {
+  const b = currentScheduleBlock();
+  const today = todayStr();
+  if (!b.subjectIds || !b.subjectIds.length) { addPracticeTasks(90); return; }
+  // テキスト復習: ブロック科目の復習項目を今日に強制表示
+  const items = getData('review_items', []).filter(it => b.subjectIds.includes(it.subject) && isActiveTextReview(it));
+  const forced = getData('force_review_' + today, []);
+  items.forEach(it => { if (!forced.map(String).includes(String(it.id))) forced.push(it.id); });
+  setData('force_review_' + today, forced);
+  // 過去問・選択式: ブロック科目のみ演習を追加（loadToday も呼ばれる）
+  addExtraTasks(90, ['past', 'select'], b.subjectIds);
+  showToast(`${b.title}（${b.subjects}）を今日に投入`);
+}
+
 // スケジュール/単元別/復習進捗/まるごと過去問集 を「今日」タブに折りたたみ統合（1画面化）
 function unifyIntoToday() {
   const today = document.getElementById('today');
@@ -2114,6 +2156,7 @@ function loadToday() {
   loadTimeProgress();
   loadSoumatome();
   renderTodayPlanInfo();
+  renderTodayScheduleFocus();
   // 統合セクション（スケジュール/単元別/復習進捗/まるごと）も同時更新
   if (typeof loadSchedule === 'function') loadSchedule();
   if (typeof loadUnitGroups === 'function') loadUnitGroups();
@@ -2679,10 +2722,10 @@ function dedupReviewItems() {
 }
 
 // 今日はもっと頑張る: 追加で指定分の講座を bonus:true でピック
-function addExtraTasks(extraMin = 60, onlyKeys = null) {
+function addExtraTasks(extraMin = 60, onlyKeys = null, subjIds = null) {
   const ts = getViewDate();
   const todayTasks = getData('today_' + ts, []);
-  // onlyKeys 指定時はそのカテゴリのみ（例: 問題演習=['smart','past','select']）
+  // onlyKeys 指定時はそのカテゴリのみ（例: 問題演習=['smart','past','select']）、subjIds 指定時はその科目のみ
   const activeGoals = GOALS.filter(g => !onlyKeys || onlyKeys.includes(g.key));
 
   // Compute category ratios
@@ -2721,6 +2764,7 @@ function addExtraTasks(extraMin = 60, onlyKeys = null) {
     outer: for (let round = 0; round < g.rounds; round++) {
       for (const subj of SUBJECTS) {
         if (accumulated >= allot) break outer;
+        if (subjIds && !subjIds.includes(subj.id)) continue;
         const lectures = data[subj.id];
         if (!lectures || lectures.length === 0) continue;
         let done = virtualDone[g.key][subj.id] || 0;
@@ -3463,10 +3507,16 @@ function loadChokuzen() {
 const SCHEDULE_OFFDAYS = new Set(['2026-07-30', '2026-08-02', '2026-08-04', '2026-08-05', '2026-08-08', '2026-08-11', '2026-08-15', '2026-08-16', '2026-08-17', '2026-08-19', '2026-08-21', '2026-08-22']);
 const OFF_HOURS = 10, WORK_HOURS = 3, AI_REVIEW_GOAL = 200;
 const SCHEDULE_BLOCKS = [
-  { title: '① 社会保険系', color: '#1a73e8', deadline: '2026-08-05', subjects: '国年・社一・健保・厚年', task: 'テキスト2周・過去問2周', from: '2026-07-19', to: '2026-08-05' },
-  { title: '② 労働系', color: '#34a853', deadline: '2026-08-17', subjects: '労基・安衛・労災・雇用・徴収・労一', task: 'テキスト2周・過去問2周', from: '2026-08-06', to: '2026-08-17' },
-  { title: '③ 直前4日（問題演習）', color: '#ea4335', deadline: '2026-08-22', subjects: '', task: '問題を解きまくる（まるごと過去問集）', from: '2026-08-18', to: '2026-08-22' },
+  { title: '① 社会保険系', color: '#1a73e8', deadline: '2026-08-05', subjects: '国年・社一・健保・厚年', subjectIds: ['kokunenhou', 'shakai_ippan', 'kenpohou', 'kounenhou'], task: 'テキスト2周・過去問2周', from: '2026-07-19', to: '2026-08-05' },
+  { title: '② 労働系', color: '#34a853', deadline: '2026-08-17', subjects: '労基・安衛・労災・雇用・徴収・労一', subjectIds: ['roukihou', 'aneihou', 'rousaihou', 'koyouhou', 'choushuuhou', 'roudou_ippan'], task: 'テキスト2周・過去問2周', from: '2026-08-06', to: '2026-08-17' },
+  { title: '③ 直前4日（問題演習）', color: '#ea4335', deadline: '2026-08-22', subjects: 'まるごと過去問集', subjectIds: [], task: '問題を解きまくる（まるごと過去問集）', from: '2026-08-18', to: '2026-08-22' },
 ];
+// 今日が属するスケジュールブロック（無ければ最後のブロック）
+function currentScheduleBlock() {
+  const today = todayStr();
+  return SCHEDULE_BLOCKS.find(b => today >= b.from && today <= b.to)
+    || (today < SCHEDULE_BLOCKS[0].from ? SCHEDULE_BLOCKS[0] : SCHEDULE_BLOCKS[SCHEDULE_BLOCKS.length - 1]);
+}
 const WD = ['日', '月', '火', '水', '木', '金', '土'];
 function mdw(dstr) { const d = new Date(dstr); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`; }
 function remainingStudyHours() {
@@ -3812,7 +3862,7 @@ function init() {
   // 学習順の優先度を適用（試験前2週間なら労基・労災・安衛を先頭にブースト）
   applySubjectPriority();
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-19-D');
+  autoBackupOnce('v2026-7-19-E');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
