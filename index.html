@@ -10,7 +10,7 @@
 <script>
 // iOS Safari 対策: ビルド版数を URL クエリに固定し、古いキャッシュを強制更新
 (function(){
-  const BUILD = '20260719a';
+  const BUILD = '20260719b';
   const u = new URL(location.href);
   if (u.searchParams.get('b') !== BUILD) {
     u.searchParams.set('b', BUILD);
@@ -296,12 +296,13 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="countdown">
     <div class="countdown-num" id="countdown-days">---</div>
     <div class="countdown-label">試験まで（日）</div>
-    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-A</div>
+    <div style="font-size:9px;opacity:0.6;margin-top:2px">v2026-7-19-B</div>
   </div>
 </div>
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="today">今日</button>
+  <button class="tab-btn" data-tab="schedule">スケジュール</button>
   <button class="tab-btn" data-tab="unitgroup">単元別</button>
   <button class="tab-btn" data-tab="reviewprog">復習進捗</button>
   <button class="tab-btn" data-tab="chokuzen">試験直前期</button>
@@ -491,6 +492,13 @@ textarea { resize: vertical; min-height: 60px; }
   </div>
 
   <!-- ==================== -->
+  <!-- スケジュール           -->
+  <!-- ==================== -->
+  <div id="schedule" class="tab-content">
+    <div id="schedule-body"></div>
+  </div>
+
+  <!-- ==================== -->
   <!-- 単元別               -->
   <!-- ==================== -->
   <div id="unitgroup" class="tab-content">
@@ -608,8 +616,8 @@ const TEXT_REVIEW_MIN_PER_PASS = 10; // 1回あたり想定 10分
 
 // 期間設定: 全カテゴリ 2026-04-13 開始 → 2026-08-20 完了目標
 const GOAL_START = '2026-04-13';
-const GOAL_END   = '2026-08-20';
-const GOAL_DAYS  = Math.round((new Date(GOAL_END) - new Date(GOAL_START)) / 86400000) + 1; // 130日
+const GOAL_END   = '2026-08-23'; // 第58回 社労士試験（令和8年度）2026-08-23(日)
+const GOAL_DAYS  = Math.round((new Date(GOAL_END) - new Date(GOAL_START)) / 86400000) + 1;
 
 // 動画インプットは削除（残り50日・時間短縮のため）。概要理解は総まとめ講座「今日のまとめ」で代替。
 // ※ kihon データは章対応(単元グループ)の基準として引き続き使用。
@@ -2033,19 +2041,28 @@ function deleteSelectedTasks() {
   showToast(`${cnt}件削除`);
 }
 
-// 残り日数・勉強可能時間(残り日数×5h)・学習優先順位を今日タブに表示
+// 残り日数・勉強可能時間・今日の目標時間・AI200問・学習優先順位を今日タブに表示
 function renderTodayPlanInfo() {
   const el = document.getElementById('today-plan-info');
   if (!el) return;
-  const daysToExam = Math.max(0, Math.round((new Date(GOAL_END) - new Date(todayStr())) / 86400000));
-  const HRS_PER_DAY = 5;
-  const availH = daysToExam * HRS_PER_DAY;
+  const today = todayStr();
+  const daysToExam = Math.max(0, Math.round((new Date(GOAL_END) - new Date(today)) / 86400000));
+  const { totalH } = remainingStudyHours();
+  const isOff = SCHEDULE_OFFDAYS.has(today);
+  const todayH = isOff ? OFF_HOURS : WORK_HOURS;
   const boost = daysToExam <= 14 && daysToExam >= 0;
   const order = SUBJECTS.map(s => s.short).join(' ▸ ');
+  const aiDone = getData('ai_review_done', {});
+  const aiOn = !!aiDone[today];
   const em = Number(GOAL_END.split('-')[1]), ed = Number(GOAL_END.split('-')[2]);
   el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#fff7ed,#fef3c7);padding:10px 12px">
-    <div style="font-size:12px"><strong>📅 試験(${em}/${ed})まで残り <span style="color:#b45309">${daysToExam}日</span></strong>　勉強可能 <strong>${daysToExam}×${HRS_PER_DAY}h ＝ ${availH}h</strong></div>
-    <div style="font-size:11px;color:var(--text-light);margin-top:5px;line-height:1.5">📌 学習優先順位${boost ? ' <span style="color:var(--danger);font-weight:700">（直前2週間ブースト中：労基・労災・安衛を優先）</span>' : ''}<br>${order}</div>
+    <div style="font-size:12px"><strong>📅 試験(${em}/${ed})まで残り <span style="color:#b45309">${daysToExam}日</span></strong>　勉強可能 <strong>約${totalH}h</strong></div>
+    <div style="font-size:12px;margin-top:4px">今日の目標: <strong style="color:${isOff ? '#b45309' : 'var(--primary)'}">${isOff ? `休み ${OFF_HOURS}h` : `仕事日 ${WORK_HOURS}h`}</strong></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:5px 8px;background:rgba(255,255,255,0.6);border-radius:6px">
+      <div class="task-check ${aiOn ? 'checked' : ''}" onclick="toggleAiReview('${today}')" style="flex-shrink:0">${aiOn ? '✓' : ''}</div>
+      <span style="font-size:12px">📱 スタディング AI問題復習 <strong>${AI_REVIEW_GOAL}問</strong>（毎日）</span>
+    </div>
+    <div style="font-size:11px;color:var(--text-light);margin-top:6px;line-height:1.5">📌 学習優先順位${boost ? ' <span style="color:var(--danger);font-weight:700">（直前2週間ブースト中）</span>' : ''}<br>${order}</div>
   </div>`;
 }
 
@@ -3480,6 +3497,70 @@ function loadExamSchedule() {
     </div>`;
 }
 
+// ==== 学習スケジュール（残り再構成） ====
+const SCHEDULE_OFFDAYS = new Set(['2026-07-30', '2026-08-02', '2026-08-04', '2026-08-05', '2026-08-08', '2026-08-11', '2026-08-15', '2026-08-16', '2026-08-17', '2026-08-19', '2026-08-21', '2026-08-22']);
+const OFF_HOURS = 10, WORK_HOURS = 3, AI_REVIEW_GOAL = 200;
+const SCHEDULE_BLOCKS = [
+  { title: '① 社会保険系', color: '#1a73e8', deadline: '2026-08-05', subjects: '国年・社一・健保・厚年', task: 'テキスト2周・過去問2周', from: '2026-07-19', to: '2026-08-05' },
+  { title: '② 労働系', color: '#34a853', deadline: '2026-08-17', subjects: '労基・安衛・労災・雇用・徴収・労一', task: 'テキスト2周・過去問2周', from: '2026-08-06', to: '2026-08-17' },
+  { title: '③ 直前4日（問題演習）', color: '#ea4335', deadline: '2026-08-22', subjects: '', task: '問題を解きまくる（まるごと過去問集）', from: '2026-08-18', to: '2026-08-22' },
+];
+const WD = ['日', '月', '火', '水', '木', '金', '土'];
+function mdw(dstr) { const d = new Date(dstr); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`; }
+function remainingStudyHours() {
+  const today = todayStr(); let totalH = 0, offN = 0, workN = 0, cur = today;
+  while (cur < GOAL_END) { const off = SCHEDULE_OFFDAYS.has(cur); totalH += off ? OFF_HOURS : WORK_HOURS; if (off) offN++; else workN++; cur = addDays(cur, 1); }
+  return { totalH, offN, workN };
+}
+function toggleAiReview(date) {
+  const d = getData('ai_review_done', {});
+  if (d[date]) delete d[date]; else d[date] = true;
+  setData('ai_review_done', d);
+  loadSchedule(); loadToday();
+}
+function loadSchedule() {
+  const el = document.getElementById('schedule-body');
+  if (!el) return;
+  const today = todayStr();
+  const aiDone = getData('ai_review_done', {});
+  const { totalH, offN, workN } = remainingStudyHours();
+  const daysToExam = Math.max(0, Math.round((new Date(GOAL_END) - new Date(today)) / 86400000));
+  const aiCnt = Object.keys(aiDone).length;
+
+  const blockHtml = SCHEDULE_BLOCKS.map(b => {
+    let rows = '', bH = 0;
+    let cur = b.from < today ? today : b.from;
+    while (cur <= b.to) {
+      const isOff = SCHEDULE_OFFDAYS.has(cur);
+      const h = isOff ? OFF_HOURS : WORK_HOURS; bH += h;
+      const isToday = cur === today;
+      const on = !!aiDone[cur];
+      rows += `<div class="task-item ${on ? 'done' : ''}" style="${isToday ? 'outline:2px solid var(--primary)' : ''}">
+        <div class="task-check ${on ? 'checked' : ''}" onclick="toggleAiReview('${cur}')" title="AI問題復習${AI_REVIEW_GOAL}問">${on ? '✓' : ''}</div>
+        <div class="task-text" style="font-size:12px">${mdw(cur)} <span style="color:${isOff ? '#b45309' : 'var(--text-light)'};font-weight:700">${isOff ? `休 ${OFF_HOURS}h` : `仕事 ${WORK_HOURS}h`}</span>${isToday ? ' <span style="color:var(--primary);font-weight:700">← 今日</span>' : ''}</div>
+      </div>`;
+      cur = addDays(cur, 1);
+    }
+    if (!rows) return '';
+    return `<div class="card" style="border-left:4px solid ${b.color};padding:10px 12px">
+      <div style="font-size:13px;font-weight:800;color:${b.color}">${b.title}（〜${mdw(b.deadline)}）</div>
+      ${b.subjects ? `<div style="font-size:12px;margin-top:2px">対象: <strong>${b.subjects}</strong></div>` : ''}
+      <div style="font-size:12px;color:var(--text-light);margin-top:2px">${b.task}</div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:2px">この期間 約${bH}h</div>
+      <div style="margin-top:6px">${rows}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="card" style="background:linear-gradient(135deg,#eef2ff,#fdf2f8)">
+      <div style="font-size:14px;font-weight:800">📅 学習スケジュール（まるごと過去問集＋テキスト中心）</div>
+      <div style="font-size:12px;margin-top:4px">試験 <strong>${mdw(GOAL_END)}</strong> まで <strong>残り${daysToExam}日</strong></div>
+      <div style="font-size:12px;color:var(--text-light);margin-top:2px">休${offN}日×${OFF_HOURS}h ＋ 仕事${workN}日×${WORK_HOURS}h ＝ <strong style="color:var(--primary)">約${totalH}h</strong></div>
+      <div style="font-size:12px;margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.6);border-radius:6px">📱 毎日: スタディング <strong>AI問題復習 ${AI_REVIEW_GOAL}問</strong>（各日のチェックで記録）　達成 <strong>${aiCnt}日</strong></div>
+    </div>
+    ${blockHtml}`;
+}
+
 // ==== 単元別まとめ学習（基本講座の章範囲でグループ化） ====
 const UNITG_EXPANDED = new Set();
 function toggleUnitSubject(id) {
@@ -3769,7 +3850,7 @@ function init() {
   // 学習順の優先度を適用（試験前2週間なら労基・労災・安衛を先頭にブースト）
   applySubjectPriority();
   // v2026-5-5-A: BUILD 切替時に自動バックアップを1度だけダウンロード
-  autoBackupOnce('v2026-7-19-A');
+  autoBackupOnce('v2026-7-19-B');
   // 既存ユーザーの進捗データを多周対応の total に更新（done は維持）
   migrateProgressTotals();
   // 復習データを新フォーマット (completedPasses) に移行
@@ -3808,6 +3889,7 @@ function init() {
       if (btn.dataset.tab === 'chokuzen') loadChokuzen();
       if (btn.dataset.tab === 'reviewprog') loadReviewProgress();
       if (btn.dataset.tab === 'unitgroup') loadUnitGroups();
+      if (btn.dataset.tab === 'schedule') loadSchedule();
     });
   });
 
@@ -3818,6 +3900,7 @@ function init() {
   loadChokuzen();
   loadReviewProgress();
   loadUnitGroups();
+  loadSchedule();
 }
 
 init();
